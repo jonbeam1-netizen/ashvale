@@ -1,5 +1,6 @@
 // World layout. OWNER: agent D.
-// Coordinates are tiles: x east, y SOUTH (y=0 is the far north). World is 288 x 256.
+// Coordinates are tiles: x east, y SOUTH (y=0 is the far north). World is 288 x 256 here; midgame_dungeon.js grows it to 288 x 288 (sealed band y 256-287) -
+// read game.world.width / height (or getMapConfig()) rather than WORLD_H.
 // Order matters: paint ops are applied top to bottom, then building floors, then spawn rules.
 // See ARCHITECTURE.md "Map data" for every op / rule field.
 //

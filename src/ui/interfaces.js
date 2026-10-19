@@ -168,7 +168,7 @@ export class Interfaces {
       else text = val(n.message);
       if (name) box.appendChild(el('div', 'dlg-name', escapeHtml(name)));
       box.appendChild(el('div', `dlg-text${name ? '' : ' plain'}`, markup(text)));
-      const c = el('div', 'dlg-continue', 'Click here to continue');
+      const c = el('div', 'dlg-continue', document.documentElement.classList.contains('touch') ? 'Tap here to continue' : 'Click here to continue');
       c.onclick = () => d.continue();
       box.appendChild(c);
       return;
@@ -364,7 +364,9 @@ export class Interfaces {
       id: 'shop', title: def.name, className: 'shop', width: 460,
       render: (body) => {
         const grid = el('div', 'shop-grid');
-        body.append(grid, el('div', 'muted pad', 'Left-click: Value. Right-click to buy. Right-click your inventory to sell.'));
+        body.append(grid, el('div', 'muted pad', document.documentElement.classList.contains('touch')
+          ? 'Tap: Value. Press and hold to buy. Press and hold an item in your inventory to sell.'
+          : 'Left-click: Value. Right-click to buy. Right-click your inventory to sell.'));
         this.shopEls = { grid, shopId };
       },
       onClose: () => { this.shopEls = null; off(); },

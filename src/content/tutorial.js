@@ -2,7 +2,8 @@
 // Runtime (step tracker panel, highlights, rewards, save state) lives in src/systems/tutorial.js.
 //
 // Step schema (registerData('tutorial', 'steps', [...]), in order):
-//   { id, title, text,
+//   { id, title, text, touchText?                           (touchText: wording for touch screens; without it the
+//                                                            mouse wording is converted: click -> tap, right-click -> press and hold)
 //     event: 'player:walk' | 'gathering:log' | ... | null   game event that may complete the step
 //     match?: (payload, ctx) => bool                         filter for that event (ctx = { game, player, step, state })
 //     poll?: (ctx) => bool                                    checked every tick (camera moved, tab open...)
@@ -44,8 +45,10 @@ registerData('tutorial', 'reward', [
 const isTool = (id) => /^forge_bronze_/.test(id);
 registerData('tutorial', 'steps', [
   { id: 'walk', title: 'Getting around', text: '<b>Left-click</b> on the ground to walk there. Try walking a few steps.',
+    touchText: '<b>Tap</b> the ground to walk there. Try walking a few steps.',
     event: 'player:walk' },
   { id: 'camera', title: 'Looking around', text: 'Turn the camera with the <b>arrow keys</b> (or drag with the middle mouse button) and <b>scroll</b> to zoom.',
+    touchText: '<b>Drag one finger</b> across the world to turn the camera, and <b>pinch</b> with two fingers to zoom.',
     poll: ({ state, game }) => {
       const c = game.renderer?.cameraCtl;
       if (!c) return true; // no camera controller (headless): don't block the tutorial
@@ -53,6 +56,7 @@ registerData('tutorial', 'steps', [
       return Math.abs(c.yaw - state.cam.yaw) > 0.4 || Math.abs(c.pitch - state.cam.pitch) > 0.15 || Math.abs((c.dist ?? 0) - (state.cam.dist ?? 0)) > 1.5;
     } },
   { id: 'guide', title: 'Meet the Wayguide', text: 'Talk to <b>Wayguide Corin</b> (the green <b>?</b> on the minimap): <b>left-click</b> him, or right-click and choose <b>Talk-to</b>.',
+    touchText: 'Talk to <b>Wayguide Corin</b> (the green <b>?</b> on the minimap): <b>tap</b> him, or press and hold him and choose <b>Talk-to</b>.',
     world: { npc: GUIDE_ID }, event: 'dialogue:end', match: (e) => e.ctx?.npc?.def?.id === GUIDE_ID },
   { id: 'chop', title: 'Woodcutting', text: 'You carry a <b>bronze axe</b>. Click a normal <b>tree</b> to chop some logs. The flag on your minimap marks one.',
     world: { object: 'tree_normal', near: [84, 146] }, event: 'gathering:log' },
@@ -104,7 +108,7 @@ registerDialogue(GUIDE_ID, ({ game }) => {
   if (st === 'active') {
     return [
       { npc: (ctx) => `How goes it? Your current task: ${(step?.title || 'keep exploring').toLowerCase()}.` },
-      { npc: () => (step?.text || '').replace(/<[^>]+>/g, '') },
+      { npc: () => (T.stepText?.(step) ?? step?.text ?? '').replace(/<[^>]+>/g, '') },
       { options: [
         { text: 'Thanks, I will get to it.', end: true },
         { text: 'Show me where to go.', action: () => { T.point?.(); return false; } },

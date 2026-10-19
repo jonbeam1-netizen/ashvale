@@ -24,6 +24,7 @@ export class Shops {
   stock(shopId) {
     if (!this.state.has(shopId)) {
       const def = getShop(shopId);
+      if (!def) return []; // unknown shop: never create state the restock tick would choke on
       this.state.set(shopId, (def?.stock || []).map((s) => ({ id: s.id, qty: s.qty ?? 10, base: s.qty ?? 10 })));
     }
     return this.state.get(shopId);

@@ -999,7 +999,8 @@ supplies); bar values are ≥ 0.57 × the best per-bar value of any smithed piec
 character created this session (no save existed when systems initialised); existing saves are never forced into it.
 Wayguide Corin (`tutorial_guide`, `(94,139)`) can start it on request; two practice dummies (`practice_dummy`, combat
 level 0 = never retaliate) stand west of him. Steps are `registerData('tutorial', 'steps', [...])` entries
-`{ id, title, text, event, match(payload, ctx), poll(ctx), ui, world, onStart }` that complete from real events
+`{ id, title, text, touchText?, event, match(payload, ctx), poll(ctx), ui, world, onStart }` (on touch screens the panel shows
+`touchText`, else `text` with click → tap / right-click → press and hold; `game.tutorial.stepText(step)`) that complete from real events
 (`player:walk`, `dialogue:end`, `gathering:log|fish|ore`, `production:make`, `equip`, `npc:death`, `ui:open`) or a per-tick
 poll (camera moved, Quest List tab open). `ui` = `tab:<id>` / `quest:<id>` / `minimap` / CSS selector (highlight + bouncing
 arrow; text only if the element is missing); `world` = `{npc}` / `{object, near}` / `{x,y}` (minimap flag via

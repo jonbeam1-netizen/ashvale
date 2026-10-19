@@ -1,4 +1,4 @@
-// World map: a full-screen map of the whole 288x256 world (button under the minimap, Alt+M, Esc closes).
+// World map: a full-screen map of the whole world (288x288) (button under the minimap, Alt+M, Esc closes).
 // The base image is the minimap's terrain/scenery image (4 px per tile), split once into two cached layers:
 // the surface ("Surface") and the sealed dungeon pockets ("Underground", every `dungeon: true` area).
 // Drag / one-finger drag pans, wheel / pinch zooms, a click places a marker that shows as a flag on the

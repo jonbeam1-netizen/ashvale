@@ -102,11 +102,21 @@ function welcome(game, firstTime) {
   game.message('Welcome to Ashvale.');
   if (!firstTime) return;
   const tip = (t) => game.message(`<col=1a4a8a>${t}</col>`);
-  tip('<col=000000>How to play:</col> <col=800000>left-click</col> the ground to walk, or a person, monster or object to do its main action.');
-  tip('<col=800000>Right-click</col> anything to see every option (Talk-to, Trade, Attack, Examine...). On touch screens, tap = left-click and press-and-hold = right-click.');
-  tip('Turn the camera with the <col=800000>arrow keys</col> or by dragging with the <col=800000>middle mouse button</col>; <col=800000>scroll</col> to zoom. Click the compass to face north.');
-  tip('Your first goal: talk to <col=800000>Mira</col>, the town guide in the square (the blue <col=800000>?</col> on the minimap). She needs a hand.');
-  tip('Want company? Open the <col=800000>Multiplayer</col> tab (the smiley face) to play with friends.');
+  const touch = !!(game.ui.mobile?.touch || document.documentElement.classList.contains('touch'));
+  const tutorial = !!game.tutorial; // fresh characters get the guided tutorial (it starts on 'game:ready')
+  if (touch) {
+    tip('<col=000000>How to play:</col> <col=800000>tap</col> the ground to walk, or a person, monster or object to do its main action.');
+    tip('<col=800000>Press and hold</col> anything to see every option (Talk-to, Trade, Attack, Examine...).');
+    tip(`<col=800000>Drag one finger</col> to turn the camera, <col=800000>pinch</col> to zoom. Tap the compass to face north.${game.ui.mobile?.compact ? ' The <col=800000>Menu</col> button holds the world map, settings and more.' : ''}`);
+  } else {
+    tip('<col=000000>How to play:</col> <col=800000>left-click</col> the ground to walk, or a person, monster or object to do its main action.');
+    tip('<col=800000>Right-click</col> anything to see every option (Talk-to, Trade, Attack, Examine...).');
+    tip('Turn the camera with the <col=800000>arrow keys</col> or by dragging with the <col=800000>middle mouse button</col>; <col=800000>scroll</col> to zoom. Click the compass to face north.');
+  }
+  tip(tutorial
+    ? 'Once you know the basics, talk to <col=800000>Mira</col>, the town guide in the square (the blue <col=800000>?</col> on the minimap). She needs a hand.'
+    : 'Your first goal: talk to <col=800000>Mira</col>, the town guide in the square (the blue <col=800000>?</col> on the minimap). She needs a hand.');
+  tip(`Want company? Open the <col=800000>Multiplayer</col> tab (the smiley face${game.ui.mobile?.compact ? ', or via the Menu button' : ''}) to play with friends.`);
 }
 
 /**

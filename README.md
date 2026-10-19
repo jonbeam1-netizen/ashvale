@@ -14,8 +14,12 @@ Works in current desktop browsers (Chrome, Edge, Firefox, Safari) and on phones 
 ## Getting started
 
 1. Open the link, create your character and press **Enter Ashvale**.
-2. Talk to **Mira**, the town guide in Brackenford square (the blue **?** on the minimap) – she'll get you started.
-3. Click the ground to walk; click people, monsters and objects to interact. **Right-click** shows every option.
+2. Follow the short **tutorial** (the guide panel at the top-left): Wayguide Corin walks you through walking, the
+   camera, chopping, fishing, cooking, mining, smithing, combat and the bank, and hands you a starter bundle.
+   You can skip it at any time.
+3. Then talk to **Mira**, the town guide in Brackenford square (the blue **?** on the minimap) for your first quest.
+4. Click the ground to walk; click people, monsters and objects to interact. **Right-click** shows every option
+   (on a touch screen: tap, and press-and-hold).
 
 Your progress saves automatically every 30 seconds and when you close the tab.
 
@@ -52,17 +56,29 @@ the world lives on the host's browser, so the session ends when the host leaves.
 
 - **23 skills** – melee, ranged and magic combat, prayer, gathering (woodcutting, mining, fishing, hunter, farming),
   production (smithing, cooking, crafting, fletching, herblore, runebinding, construction, firemaking) and more.
-- **17 quests**, from novice errands to a multi-region epic, each with its own story, puzzles and rewards.
+  Click any skill for its **skill guide** – everything it unlocks, level by level.
+- **21 quests**, from novice errands to a multi-region epic, each with its own story, puzzles and rewards.
+- **A new-player tutorial** with a guide panel, highlights and minimap flags (skippable).
 - **A big hand-made world** – a river vale with towns and farms, dwarven halls, an elven forest town, desert
   badlands, a stormy coast with islands and a ferry, deep dungeons and the dangerous Wilderness.
+- **The Glimmerdeep** – a three-level mid-game dungeon beneath the vale (combat ~40–75): drowned galleries, a fungal
+  forest and the Lanternwrights' old forge, two bosses, new gear, agility shortcuts and four quests that open it up.
+- **The Drowned Sun** – an endgame co-op raid for 1–4 players: a sunbeam puzzle, monster waves, a twin-soul sentinel,
+  a supply cistern and a three-phase final boss, with team points, personal reward rolls and rare relics.
 - **Combat** with weapon styles, special attacks, prayers, spells, slayer tasks and huge multi-tile bosses.
 - **Minigames** – survive 18 waves in *The Crucible*, raid the barrow mounds of *Wardens' Rest*, and follow
   *Wayfinder's Riddles* (treasure trails with maps, riddles, emotes and puzzle boxes).
+- **Regional Chronicles** – easy / medium / hard task lists for six regions with medallion rewards (bonus XP and
+  teleports), plus a **collection log** of boss, slayer, minigame, riddle and pet uniques, **hiscores**, an **XP
+  tracker** overlay and **mastery mantles** for every level-99 skill.
 - **Pets**, an **Emotes** tab, banks, shops, player trading and a death gravestone so you can reclaim your items.
 - **Living world** – a shared day/night cycle, regional weather (rain, snow, sandstorms, embers), night lights,
-  swaying foliage and a world map with icons and markers.
+  swaying foliage and a world map (surface and underground) with icons and markers.
 - **Procedural music and sound** – every tune and sound effect is generated live in your browser.
-- Graphics settings with *High quality* and *Auto quality* for slower devices.
+- **Phones and tablets** – a compact touch layout (portrait and landscape) with tap / press-and-hold controls and
+  floating Menu and Run buttons.
+- **Graphics presets** – Auto / Low / Medium / High / Custom, a frame-rate limit, shadows, draw distance, weather and
+  *Always day* toggles, and *Auto quality* for slower devices.
 
 ## Running it locally
 

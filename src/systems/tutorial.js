@@ -27,6 +27,22 @@ const currentStep = () => (isActive() ? steps()[stepIndex()] || null : null);
 const stepState = () => { const s = store(); if (!s.data || typeof s.data !== 'object') s.data = {}; return s.data; };
 const ctxFor = (step) => ({ game, player: game.player, step, state: stepState() });
 
+/** Touch screen (phones / tablets): tutorial wording says "tap" / "press and hold" instead of mouse clicks. */
+const isTouch = () => !!(game?.ui?.mobile?.touch || document.documentElement.classList.contains('touch'));
+/** Mouse wording -> touch wording (used when a step has no explicit `touchText`). */
+export function touchify(html) {
+  return String(html || '')
+    .replace(/\b([Ll])eft-click\b/g, (m, l) => (l === 'L' ? 'Tap' : 'tap'))
+    .replace(/\b([Rr])ight-click\b/g, (m, r) => (r === 'R' ? 'Press and hold' : 'press and hold'))
+    .replace(/\b([Cc])lick(ing|s|ed)?\b/g, (m, c, suf) => (c === 'C' ? 'Tap' : 'tap') + (suf === 'ing' ? 'ping' : suf === 'ed' ? 'ped' : suf || ''));
+}
+/** The step's text for this device. */
+function stepText(step) {
+  if (!step) return '';
+  if (!isTouch()) return step.text || '';
+  return step.touchText || touchify(step.text);
+}
+
 // =================================================================================================
 // Flow
 // =================================================================================================
@@ -170,7 +186,7 @@ const CSS = `
   background: rgba(30,26,20,0.92); border: 2px solid #6e604c; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.6);
   color: #f0e6d0; font-size: 13px; line-height: 1.35; padding: 6px 8px 7px; text-shadow: 1px 1px 0 #000; }
 #tutorial-panel .tut-head { display: flex; align-items: center; gap: 6px; color: #ffde72; font-weight: 700; font-size: 12px; letter-spacing: .5px; }
-#tutorial-panel .tut-head .tut-count { margin-left: auto; color: #c8b890; font-weight: 400; }
+#tutorial-panel .tut-head .tut-count { margin-left: auto; color: #c8b890; font-weight: 400; white-space: nowrap; }
 #tutorial-panel .tut-title { font-size: 15px; font-weight: 700; color: #fff; margin: 3px 0 2px; }
 #tutorial-panel .tut-text b { color: #ffde72; }
 #tutorial-panel .tut-hint { color: #9fe09f; margin-top: 3px; font-size: 12px; }
@@ -187,6 +203,8 @@ const CSS = `
   border-top: 16px solid #ffde40; filter: drop-shadow(0 0 2px #000); animation: tutbob 0.8s ease-in-out infinite; display: none; }
 @keyframes tutbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @media (max-width: 600px) { #tutorial-panel { font-size: 12px; width: auto; right: 190px; } }
+/* mouse UIs show the hover text ("Chop down Tree / 2 more options") in the top-left corner: sit below it */
+html:not(.touch) #tutorial-panel { top: 28px; }
 `;
 
 function ensureDom() {
@@ -216,7 +234,7 @@ function ensureDom() {
     if (Date.now() < skipArm) { skipArm = 0; skip(); return; }
     skipArm = Date.now() + 3000;
     skipBtn.classList.add('armed');
-    skipBtn.textContent = 'Click again to skip';
+    skipBtn.textContent = isTouch() ? 'Tap again to skip' : 'Click again to skip';
     setTimeout(() => { skipBtn.classList.remove('armed'); render(); }, 3000);
   };
   root.appendChild(panel);
@@ -252,7 +270,7 @@ function render() {
     return;
   }
   panel.querySelector('.tut-title').textContent = step?.title || '';
-  panel.querySelector('.tut-text').innerHTML = step?.text || '';
+  panel.querySelector('.tut-text').innerHTML = stepText(step);
   panel.querySelector('.tut-point').style.display = step?.world ? '' : 'none';
   updateHint();
   setHighlight(findUiTarget(step));
@@ -352,7 +370,7 @@ export function init(g) {
   });
 
   game.tutorial = {
-    status, currentStep, start, skip, point: () => point(false), complete, advance,
+    status, currentStep, start, skip, point: () => point(false), complete, advance, stepText, isTouch,
     get steps() { return steps(); },
   };
 }
