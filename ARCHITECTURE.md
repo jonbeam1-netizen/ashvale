@@ -479,7 +479,8 @@ Prayer points = `skills.getCurrent('prayer')`.
 game.spawnObject(id, x, y, { rot, w, h }) -> WorldObject
 game.removeObject(obj)
 game.replaceObject(obj, newId, revertTicks?)   // in-place swap (door open, stall emptied); auto-revert
-game.depleteObject(obj, ticks?)                // -> def.depleted (or hide) then restore
+game.depleteObject(obj, ticks?)                // -> def.depleted (or hide) then restore; emits 'object:deplete'
+game.restoreObject(obj)                        // restore a depleted resource now ('object:restore'; multiplayer)
 game.getObjectAt(x, y, pred?) · game.findObjects(pred)
 game.spawnNpc(id, x, y, { wander, respawn = true, homeX, homeY }) -> Npc
 game.removeNpc(npc) · game.npcsNear(x, y, r, pred?) · game.respawnNpc(npc)
@@ -490,9 +491,12 @@ game.removeGroundItem(gi) · game.groundItemsAt(x, y) · game.canSeeGroundItem(g
 ```js
 game.applyDamage(target, amount, { source, type: 'melee'|'ranged'|'magic'|'poison'|'typeless', splat: 'damage'|'block'|'poison'|'venom'|'heal' }) -> dealt
    // emits 'damage:before' (listeners may change payload.amount, e.g. protection prayers) then 'damage';
-   // shows hitsplat + HP bar; calls game.kill at 0 HP. On a RemotePlayer it only shows the splat.
+   // shows hitsplat + HP bar; calls game.kill at 0 HP. On a RemotePlayer it only shows the splat; on a shared NPC
+   // simulated by the multiplayer host (npc.netControlled) it predicts the HP and sends the hit to the host.
+   // opts.netRaw skips 'damage:before' (a hit already modified on the attacker's client).
 game.heal(target, amount)
 game.kill(target, killer)        // npc: 'npc:death' (set noDrops), drops after 3 ticks, respawn after def.respawnTicks
+                                 // (shared NPCs in multiplayer: game.net.npcDeath decides credit / drop owner)
                                  // player: 'player:death' (set handled to replace default respawn)
 game.respawnPlayer(player, x, y)
 ```
@@ -642,10 +646,12 @@ Icons: `getItemIcon(id, qty)`, `getItemIconTexture(id, qty)`, `getSkillIcon(skil
 | `action:start` / `action:stop` | `{entity, action}` / `{entity, action, reason}` |
 | `damage:before` (mutate `amount`), `damage` | `{target, amount, source, type, splat}` |
 | `npc:death` (set `noDrops`) | `{npc, killer}` |
+| `npc:attack` | `{npc, target, attack, index, fromNet}` (an NPC starts an attack; `fromNet` = replayed from the multiplayer host) |
 | `player:death` (set `handled`) | `{player, killer}` |
 | `player:respawn`, `npc:respawn` | `{player}` / `{npc}` |
 | `npc:add`, `npc:remove` | `{npc}` |
 | `object:add`, `object:remove`, `object:change` | `{object, from?}` |
+| `object:deplete`, `object:restore` | `{object, ticks}` / `{object}` (resource depletion, shared in multiplayer) |
 | `ground:add`, `ground:remove`, `ground:change` | `{item, expired?}` |
 | `remote:add`, `remote:remove` | `{remote}` |
 | `chat` | `{type, text, from}` (every chatbox line) |
@@ -717,11 +723,23 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   `game.interactions.onPlayer(option, handler, {range})`.
 * **UI:** render the Friends/Multiplayer tab with `game.ui.registerTab({ id: 'friends', render(pane) {...} })`
   (or write into `game.ui.getTabElement('friends')`).
-* **Shared state (implemented in `src/net/`):** every hitsplat a player takes is mirrored from its own
-  client (`splat`; the attacker's PvP splat waits for it – `game.pvp.confirmHit`), effects involving
-  players are mirrored (`fx`, receivers get `fromNet: true` on `'effect'`), agility `forced` walks are sent
-  in snapshots, and non-permanent ground items inside the Wilderness are host-authoritative shared items
-  (`gi.nid`, `src/net/shared.js`). Details: `docs/NET_SHARED_WORLD.md`.
+* **Shared world (implemented in `src/net/`, design in `docs/NET_SHARED_WORLD.md`).** In a session the HOST is
+  authoritative for the world, every client stays authoritative for its own player (HP, inventory, save):
+  * *NPCs* (`net/npcs.js`): map-spawned NPCs get a stable `npc.netSid`; the host simulates them (also aggression
+    against and retaliation on joiners) and streams interest-managed deltas (32 tiles, per tick, ~0.6 KB/s per
+    joiner in the busiest area). On joiners they are `npc.netControlled` (engine + combat skip their AI; they walk
+    to the host's positions). A joiner rolls its own hits (`game.applyDamage` -> `game.net.npcDamage` -> host
+    applies with `netRaw`); the host only decides *that* an NPC attacks whom (`'npc:attack'`), the target's client
+    rolls/applies it with `game.combat.npcAttack`. Deaths: every contributor gets `npc:death` with
+    `killer = its own player` (slayer/quest credit); the host rolls the drop for the top damage dealer.
+    Friends may fight the same monster anywhere (co-op: "someone else is fighting that" ignores remote players). The host leaves NPCs > 44 tiles from every player dormant (`npc.netDormant`).
+  * *Ground items* (`net/shared.js`): every non-permanent tradeable ground item anywhere (`gi.nid`), with owner
+    privacy timers and host-resolved takes. Untradeable (quest) items stay local.
+  * *Resources* (`net/world.js`): `object:deplete` / `object:restore` are mirrored (host timer decides), the host
+    moves fishing spots, permanent item spawns are taken through the host.
+  * Per player: quests, farming patches, homestead, quest-spawned NPCs (`respawn: false`), hunter creatures/traps,
+    gravestones, fires. Other mirrored state: hitsplats on players (`splat`), effects (`fx`, refs `{p}`/`{n}`/`{t}`),
+    agility `forced` walks. `game.net.traffic(true)` / `traffic()` meters bandwidth per peer.
 
 ---------------------------------------------------------------------------------------------------
 

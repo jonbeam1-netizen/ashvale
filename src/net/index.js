@@ -3,8 +3,10 @@
 // Host World -> 6-char code (PeerJS id `ashvale-v1-<CODE>` on the public PeerJS cloud signalling server);
 // friends join with the code or an invite link (`?join=CODE`). Star topology: the host relays.
 // Shared: players (position/appearance/equipment/anim/hp/prayers...), public + private chat,
-// trading, PvP hits/loot/deaths/hitsplats/projectiles, and Wilderness ground items (host-authoritative,
-// net/shared.js). NOT shared: NPCs, resources, ground items outside the Wilderness (each client runs its own).
+// trading, PvP hits/loot/deaths/hitsplats/projectiles, and - host-authoritative - the world: NPCs (net/npcs.js),
+// ground items (net/shared.js), resource depletion / fishing spots / permanent item spawns (net/world.js).
+// Per player (each client's own save): quests, farming patches, the homestead, inventories/banks/skills,
+// quest-spawned bosses, hunter creatures and traps. Design: docs/NET_SHARED_WORLD.md.
 //
 // game.net API (see also docs in ARCHITECTURE.md §11):
 //   connected, peerId, role ('host'|'joiner'|null), code, status
@@ -13,6 +15,9 @@
 //   sendHit(peerId, {damage, style, attackerName, ts}) -> receiver: game.pvp.receiveHit(remote, payload)
 //   sendLoot(peerId, {items:[{id,qty}], x, y})         -> receiver: game.pvp.receiveLoot(remote, payload)
 //   sendPrivateMessage(peerId, text)
+//   traffic(reset?) -> bandwidth meter {seconds, out: {peerId: {bytes, msgs, kinds, bps}}, in: {...}}
+//   engine hooks (net/npcs.js): npcDamage(npc, dmg, opts), npcDeath(npc, killer), npcEffect(npc, kind, v, skill),
+//   npcAggroTargets()
 // Events: 'net:status' {status, error}, 'net:join' {remote}, 'net:leave' {remote, reason},
 //         'net:message', 'net:remoteDeath' {remote, killerPeerId}
 
@@ -21,6 +26,8 @@ import { Session } from './session.js';
 import { TradeManager } from './trade.js';
 import { NetPanel } from './panel.js';
 import { SharedGround } from './shared.js';
+import { SharedNpcs } from './npcs.js';
+import { SharedWorld } from './world.js';
 import { cleanSnapshot, cleanText, cleanHit, cleanLoot, cleanPayload, cleanId, cleanFx, cleanSplat, int, isObj } from './protocol.js';
 
 const KEEPALIVE_TICKS = 10; // resend an unchanged snapshot this often
@@ -48,6 +55,9 @@ class NetManager {
     });
     this.trade = new TradeManager(this);
     this.shared = new SharedGround(this);
+    this.npcs = new SharedNpcs(this);
+    this.world = new SharedWorld(this);
+    this.lastRole = null;
     this.panel = null;
     this.api = this.makeApi();
     this.wire();
@@ -78,6 +88,13 @@ class NetManager {
       sendPrivateMessage: (peerId, text) => net.sendPrivateMessage(peerId, text),
       getRemote: (peerId) => net.game.getRemotePlayer(peerId),
       trade: this.trade,
+      traffic: (reset) => net.traffic(reset),
+      // engine hooks for shared NPCs (core/game.js, systems/combat.js)
+      npcDamage: (npc, dmg, opts) => net.npcs.damage(npc, dmg, opts),
+      npcDeath: (npc, killer) => net.npcs.npcDeath(npc, killer),
+      npcEffect: (npc, kind, v, skill) => net.npcs.effect(npc, kind, v, skill),
+      npcAggroTargets: () => net.npcs.aggroTargets(),
+      get sharedNpcs() { return net.npcs.active || (s.role === 'host' && net.npcs.ready.size > 0); },
     };
   }
 
@@ -215,7 +232,7 @@ class NetManager {
     if (isNew && rp) {
       this.game.message(initial ? `${rp.name} is in this world.` : `<col=00a000>${rp.name} has joined the world.</col>`);
       this.game.events.emit('net:join', { remote: rp });
-      if (!initial) this.shared.syncTo(id);
+      if (!initial) { this.shared.syncTo(id); this.world.syncTo(id); this.npcs.hello(id); }
     }
     this.panel?.update();
   }
@@ -228,6 +245,7 @@ class NetManager {
     if (g.player.combatTarget === rp) g.player.combatTarget = null;
     g.removeRemotePlayer(id);
     this.shared.onPlayerLeave(id);
+    this.npcs.onPlayerLeave(id);
     const why = reason && reason !== 'left' ? ` (${reason})` : '';
     g.message(`<col=a00000>${rp.name} has left the world${why}.</col>`);
     g.events.emit('net:leave', { remote: rp, reason });
@@ -286,6 +304,8 @@ class NetManager {
     const g = this.game;
     this.trade.reset();
     this.shared.onEnded();
+    this.npcs.deactivate();
+    this.world.onEnded(this.lastRole === 'joiner');
     this.panel?.clearToasts();
     for (const id of [...g.remotePlayers.keys()]) {
       const rp = g.remotePlayers.get(id);
@@ -301,7 +321,7 @@ class NetManager {
     const s = this.session;
     if (s.status === 'hosting') this.game.message(`<col=00a000>You are hosting world ${s.code}. Friends can join with that code (Multiplayer tab).</col>`);
     if (s.status === 'joined') this.game.message(`<col=00a000>You have joined world ${s.code}.</col>`);
-    if (s.status === 'hosting' || s.status === 'joined') { this.lastSent = ''; this.shared.onConnected(); }
+    if (s.status === 'hosting' || s.status === 'joined') { this.lastSent = ''; this.lastRole = s.role; this.shared.onConnected(); this.world.onConnected(); }
     this.panel?.update();
     this.game.events.emit('net:status', { status: s.status, error: s.error });
   }
@@ -325,6 +345,9 @@ class NetManager {
       }
       case 'fx': this.applyFx(rp, data); break;
       case 'gadd': case 'gdel': case 'gset': this.shared.onBroadcast(from, kind, data); break;
+      case 'odep': case 'orest': case 'omove': case 'ptk':
+        if (from === this.session.hostId && this.session.role === 'joiner') this.world.onJoinerMessage(kind, data);
+        break;
       case 'splat': this.applySplat(rp, data); break;
       case 'x': this.emitCustom(from, rp, data); break;
       default: break;
@@ -337,6 +360,7 @@ class NetManager {
     if (!ent) return null;
     if (ent === g.player) return { p: this.session.myId };
     if (ent.type === 'remote') return ent.peerId ? { p: ent.peerId } : null;
+    if (ent.type === 'npc' && ent.netSid != null) return { n: ent.netSid };
     if (typeof ent.x === 'number' && typeof ent.y === 'number') {
       const sz = ent.size || 1;
       return { t: [Math.floor(ent.x + (sz - 1) / 2), Math.floor(ent.y + (sz - 1) / 2)] };
@@ -363,6 +387,7 @@ class NetManager {
   resolveRef(r) {
     const g = this.game;
     if (r.p) return r.p === this.session.myId ? g.player : g.getRemotePlayer(r.p);
+    if (r.n != null) return this.npcs.table[r.n] || null;
     return { x: r.t[0], y: r.t[1] };
   }
 
@@ -408,6 +433,20 @@ class NetManager {
       case 'loot': this.receiveLoot(rp, data); break;
       case 'splat': this.applySplat(rp, data); break;
       case 'gadd': case 'gtake': case 'gqty': case 'gdel': case 'ggrant': case 'gdeny': case 'gsync': this.shared.onDirect(from, kind, data); break;
+      // shared NPCs / resources: joiner -> host
+      case 'nready': case 'nhit': case 'neff': case 'naggro':
+        if (this.session.role === 'host' && isObj(data)) this.npcs.onHostMessage(from, kind, data);
+        break;
+      case 'odep': case 'ptake': case 'pgone':
+        if (this.session.role === 'host' && isObj(data)) this.world.onHostMessage(from, kind, data);
+        break;
+      // host -> joiner
+      case 'nhello': case 'ns':
+        if (this.session.role === 'joiner' && from === this.session.hostId && isObj(data)) this.npcs.onJoinerMessage(kind, data);
+        break;
+      case 'osync': case 'pgrant': case 'pdeny':
+        if (this.session.role === 'joiner' && from === this.session.hostId) this.world.onJoinerMessage(kind, data);
+        break;
       case 'trade': this.trade.onMessage(from, data); break;
       case 'pm': {
         const text = isObj(data) ? cleanText(data.text, 80) : '';
@@ -422,6 +461,15 @@ class NetManager {
   emitCustom(from, remote, d) {
     if (!isObj(d) || typeof d.type !== 'string') return;
     this.game.events.emit('net:message', { from, remote, type: d.type.slice(0, 40), data: cleanPayload(d.data) });
+  }
+
+  // ---- bandwidth meter ----------------------------------------------------------------------------------
+  traffic(reset = false) {
+    const s = this.session;
+    if (reset || !s.traffic) { s.traffic = { t0: performance.now(), out: {}, in: {} }; return null; }
+    const sec = Math.max(0.001, (performance.now() - s.traffic.t0) / 1000);
+    const fmt = (m) => Object.fromEntries(Object.entries(m).map(([id, e]) => [id, { ...e, bps: Math.round(e.bytes / sec) }]));
+    return { seconds: Math.round(sec * 10) / 10, out: fmt(s.traffic.out), in: fmt(s.traffic.in) };
   }
 
   // ---- PvP ---------------------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
-// Shared Wilderness ground items (host-authoritative). OWNER: agent E. Design: docs/NET_SHARED_WORLD.md.
+// Shared ground items (host-authoritative). OWNER: agent E. Design: docs/NET_SHARED_WORLD.md §3.
 //
-// Every non-permanent ground item that appears in the Wilderness on any client (player drops, PvP loot,
-// death drops, ammo under a target, monster drops...) is registered with the host, which gives it a
+// Every non-permanent, tradeable ground item that appears anywhere on any client (player drops, PvP loot,
+// death drops, ammo under a target, monster drops - rolled by the host for shared NPCs...) is registered with the host, which gives it a
 // network id (`nid`) and announces it to everyone. Each client keeps an ordinary local GroundItem
 // (`gi.nid`) so rendering, menus, privacy (owner / publicTick) and despawn timers work unchanged.
 // Taking a shared item asks the host first: the host grants it to exactly one client and tells the
@@ -20,7 +20,8 @@ import { MAX_STACK } from '../core/constants.js';
 import { isObj, int, cleanId, cleanName } from './protocol.js';
 
 const NET_OWNER = '\u0000net';   // temporary owner while spawning (prevents stack-merging into local items)
-const MAX_ITEMS = 400;           // host registry cap
+const MAX_ITEMS = 1500;          // host registry cap
+const SYNC_CHUNK = 150;          // items per gsync message
 const TAKE_TIMEOUT_MS = 5000;
 
 const cleanItemId = (v) => (typeof v === 'string' && v.length <= 64 && getItem(v) ? v : null);
@@ -41,10 +42,10 @@ export class SharedGround {
 
   get isHost() { return this.session.role === 'host'; }
   get myId() { return this.session.myId; }
-  inWild(x, y) { return this.game.world.getWildernessLevel(x, y) > 0; }
-
+  /** Untradeable items (quest items...) stay private to the player who dropped them, like in the classic game. */
   shareable(gi) {
-    return gi && !gi.nid && !gi.respawnTicks && Number.isFinite(gi.despawnTick) && this.inWild(gi.x, gi.y) && getItem(gi.itemId);
+    const def = gi && getItem(gi.itemId);
+    return !!def && !gi.nid && !gi.respawnTicks && Number.isFinite(gi.despawnTick) && def.tradeable !== false;
   }
 
   wire() {
@@ -55,7 +56,15 @@ export class SharedGround {
 
     // Take on a shared item: ask the host first (registered after the engine default, so it runs first)
     g.interactions.onGroundItem('Take', '*', ({ player, target }) => {
-      if (!target?.nid || !this.net.connected) return false;
+      if (!this.net.connected || !target) return false;
+      if (target.respawnTicks && !target.nid && !this.isHost) {
+        // permanent spawn: the host decides who gets it (net/world.js)
+        if (!g.groundItems.has(target.uid)) return;
+        if (player.inventory.capacityFor(target.itemId) < target.qty) { g.message("You don't have enough inventory space to hold that item."); return; }
+        this.net.world.requestTake(target);
+        return;
+      }
+      if (!target.nid) return false;
       if (!g.groundItems.has(target.uid)) return;
       if (player.inventory.capacityFor(target.itemId) < target.qty) { g.message("You don't have enough inventory space to hold that item."); return; }
       this.requestTake(target);
@@ -217,7 +226,7 @@ export class SharedGround {
     const t = this.game.tickCount;
     const items = [];
     for (const e of this.reg.values()) if (e.despawnTick > t) items.push(this.wireEntry(e));
-    this.session.sendDirect(peerId, 'gsync', { items: items.slice(0, MAX_ITEMS) });
+    for (let i = 0; i < items.length; i += SYNC_CHUNK) this.session.sendDirect(peerId, 'gsync', { items: items.slice(i, i + SYNC_CHUNK) });
   }
 
   // ---- local mirror -----------------------------------------------------------------------------------------
@@ -263,7 +272,7 @@ export class SharedGround {
     const id = cleanItemId(d.id);
     const qty = int(d.qty, 1, MAX_STACK);
     const x = int(d.x, 0, 100000), y = int(d.y, 0, 100000);
-    if (!id || qty == null || x == null || y == null || !this.game.world.inBounds(x, y) || !this.inWild(x, y)) return null;
+    if (!id || qty == null || x == null || y == null || !this.game.world.inBounds(x, y)) return null;
     const out = { id, qty, x, y, owner: d.owner == null ? null : cleanName(d.owner), priv: int(d.priv, 0, 6000, 0), life: int(d.life, 1, 6000, 200) };
     if (!getItem(id).stackable) out.qty = 1;
     return out;
@@ -302,7 +311,7 @@ export class SharedGround {
       }
       case 'gdeny': { const nid = cleanId(data.nid); if (nid) this.denied(nid); break; }
       case 'gsync':
-        if (Array.isArray(data.items)) for (const it of data.items.slice(0, MAX_ITEMS)) this.onAdd(it);
+        if (Array.isArray(data.items)) for (const it of data.items.slice(0, SYNC_CHUNK)) this.onAdd(it);
         break;
       default: break;
     }
@@ -351,7 +360,7 @@ export class SharedGround {
   }
 
   // ---- session lifecycle ------------------------------------------------------------------------------------
-  /** We started hosting / joined: share the Wilderness items already lying around in our world. */
+  /** We started hosting / joined: share the items already lying around in our world. */
   onConnected() {
     for (const gi of [...this.game.groundItems.values()]) if (this.shareable(gi)) this.share(gi);
   }

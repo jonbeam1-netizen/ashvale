@@ -6,7 +6,7 @@ import { getItem } from '../core/registry.js';
 import { EQUIP_SLOTS, MAX_STACK } from '../core/constants.js';
 
 /** Bump when the message format changes incompatibly (peers with another version are rejected). */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2; // 2: shared NPCs / resources / world-wide ground items
 /** PeerJS id namespace. Keep stable forever so old clients still find hosts and get a clear "version mismatch". */
 export const PEER_PREFIX = 'ashvale-v1-';
 export const CODE_LENGTH = 6;
@@ -208,11 +208,13 @@ export function cleanPayload(d) { return cleanValue(d); }
 const FX_KINDS = new Set(['projectile', 'sparkle', 'splash', 'teleport', 'levelup']);
 const SPLAT_TYPES = new Set(['damage', 'block', 'poison', 'venom', 'heal']);
 
-/** Entity reference inside an effect message: {p: peerId} | {t: [x, y]} (tile). */
+/** Entity reference inside an effect message: {p: peerId} | {n: shared NPC id} | {t: [x, y]} (tile). */
 function cleanRef(r, world) {
   if (!isObj(r)) return null;
   const p = cleanId(r.p);
   if (p) return { p };
+  const n = int(r.n, 0, 100000);
+  if (n != null) return { n };
   if (Array.isArray(r.t)) {
     const x = int(r.t[0], 0, 100000), y = int(r.t[1], 0, 100000);
     if (x != null && y != null && world.inBounds(x, y)) return { t: [x, y] };

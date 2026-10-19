@@ -125,6 +125,7 @@ export class Session {
 
   onHostData(link, d) {
     if (this.links.get(link.id) !== link || !isObj(d) || typeof d.t !== 'string') return;
+    if (this.traffic) this.count(this.traffic.in, link.id, d);
     if (!this.rateOk(link)) return;
     link.lastSeen = Date.now();
     if (!link.joined) {
@@ -239,6 +240,7 @@ export class Session {
 
   onJoinerData(d) {
     if (!isObj(d) || typeof d.t !== 'string' || !this.hostLink) return;
+    if (this.traffic) this.count(this.traffic.in, this.hostId, d);
     this.hostLink.lastSeen = Date.now();
     if (d.t === 'welcome') {
       if (this.status !== 'connecting') return;
@@ -314,7 +316,17 @@ export class Session {
   // ---- sending ------------------------------------------------------------------------------------
   sendRaw(conn, msg) {
     if (!conn || !conn.open) return false;
+    if (this.traffic) this.count(this.traffic.out, conn.peer, msg);
     try { conn.send(msg); return true; } catch (e) { console.warn('[net] send failed', e); return false; }
+  }
+
+  /** Bandwidth meter (debugging): game.net.traffic(true) starts / resets it, game.net.traffic() reads it. */
+  count(map, peer, msg) {
+    const e = map[peer] || (map[peer] = { bytes: 0, msgs: 0, kinds: {} });
+    const n = jsonLen(msg);
+    e.bytes += n; e.msgs++;
+    const k = msg.kind || msg.t;
+    e.kinds[k] = (e.kinds[k] || 0) + n;
   }
 
   /** Send to one peer (host relays for joiners). */

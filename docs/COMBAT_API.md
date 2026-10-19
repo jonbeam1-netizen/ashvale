@@ -91,7 +91,11 @@ Sigils: `wind water earth fire mind` (basic), `thorn rift nexus void aether crim
 `attack(target)`, `castOn(target, spell)`, `stop()`, `attackMode(p)`, `attackSpeed(p)`, `attackRange(p)`,
 `maxHit(p)`, `poison(target, dmg)`, `curePoison(player, immunityTicks)` (antipoison), `isPoisoned()`,
 `setAntifire(player, ticks, super)`, `bind(target, ticks)`, `isBound()`, `lowerStat(target, skill, n)`,
-`drainPct(target, skill, pct)`, `registerSpecial`, `lastHit()`, `inCombat(ticks)`, `formulas`.
+`drainPct(target, skill, pct)`, `registerSpecial`, `lastHit()`, `inCombat(ticks)`, `formulas`,
+`npcAttack(npc, target, index, opts)` (multiplayer replay of a host-decided NPC attack, see `docs/NET_SHARED_WORLD.md` §4).
+Every NPC attack emits `'npc:attack' {npc, target, attack, index, fromNet}`. Multiplayer co-op: "Someone else is
+fighting that." is not raised when the monster is fighting a remote player; on the host, aggressive NPCs also
+consider joiners (`snapshot.tolerant` / `busyWith`).
 Poison state: `player.store('combat').poison = {dmg, hits, timer}`; immunity `poisonImmune` (ticks).
 
 ## `game.prayer`

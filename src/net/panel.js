@@ -95,7 +95,7 @@ export class NetPanel {
         <div class="net-stats"><span class="net-online-count"></span><span class="net-quality" title="Connection quality"></span></div>
         <div class="net-label">Players <span class="net-count muted"></span></div><div class="net-list"></div></div>
       <button class="btn danger net-leave hidden">Leave world</button>
-      <div class="muted net-note">Everyone shares the same map and keeps their own save. Monsters and resources are local to each player; other players, chat, trading, Wilderness PvP and items lying in the Wilderness are shared.</div>`;
+      <div class="muted net-note">Everyone shares the same world and keeps their own save: monsters, items on the ground and resources (trees, rocks, fishing spots) are shared, and friends can fight the same monster together (the top damage dealer gets the drop). Quests, farming patches and your homestead stay your own.</div>`;
     pane.appendChild(r);
     this.root = r;
     const q = (s) => r.querySelector(s);

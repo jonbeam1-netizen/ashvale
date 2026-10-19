@@ -128,6 +128,10 @@ export class Game {
     const approaching = p.interaction?.target?.type === 'npc' && p.interaction.option?.toLowerCase() !== 'attack' ? p.interaction.target : null;
     for (const npc of this.npcs.values()) {
       if (npc.dead || npc.hidden) continue;
+      // multiplayer (src/net/npcs.js): a joiner only walks shared NPCs to the host's positions; the host
+      // leaves NPCs far from every player dormant
+      if (npc.netControlled) { this.stepAlongPath(npc, npc.netSpeed || 1); continue; }
+      if (npc.netDormant && !npc.combatTarget) continue;
       if (npc.action) this.actions.process(npc);
       if (npc === approaching && !npc.combatTarget && !npc.forced) npc.path = [];
       if (!npc.combatTarget && !npc.path.length && !npc.talkingTo && npc !== approaching && npc.wanderRadius > 0 && Math.random() < 0.08) this.wander(npc);
@@ -555,12 +559,34 @@ export class Game {
   /** Deplete a resource: switches to def.depleted (or hides) and restores after `ticks`. */
   depleteObject(obj, ticks) {
     const t = ticks ?? (Array.isArray(obj.def.respawnTicks) ? obj.def.respawnTicks[0] + Math.floor(Math.random() * (obj.def.respawnTicks[1] - obj.def.respawnTicks[0])) : obj.def.respawnTicks ?? 30);
-    if (obj.def.depleted) return this.replaceObject(obj, obj.def.depleted, t);
-    obj.hidden = true;
-    this.world.removeObject(obj);
-    this.events.emit('object:change', { object: obj });
-    this.schedule(t, () => { obj.hidden = false; this.world.addObject(obj); this.events.emit('object:change', { object: obj }); });
+    const from = obj.id;
+    if (obj.def.depleted) {
+      if (!getObject(obj.def.depleted)) return this.replaceObject(obj, obj.def.depleted, t); // (warns)
+      this.replaceObject(obj, obj.def.depleted);
+      obj._depleted = { from, hide: false };
+    } else {
+      obj.hidden = true;
+      this.world.removeObject(obj);
+      this.events.emit('object:change', { object: obj });
+      obj._depleted = { from, hide: true };
+    }
+    obj._revert?.cancel();
+    obj._revert = this.schedule(t, () => { obj._revert = null; this.restoreObject(obj); });
+    this.events.emit('object:deplete', { object: obj, ticks: t });
     return obj;
+  }
+
+  /** Brings a depleted resource back now (normally scheduled by depleteObject; multiplayer restores early). */
+  restoreObject(obj) {
+    const d = obj._depleted;
+    if (!d) return;
+    obj._depleted = null;
+    obj._revert?.cancel();
+    obj._revert = null;
+    if (!this.objects.has(obj.uid)) return;
+    if (d.hide) { obj.hidden = false; this.world.addObject(obj); this.events.emit('object:change', { object: obj }); }
+    else this.replaceObject(obj, d.from);
+    this.events.emit('object:restore', { object: obj });
   }
 
   getObjectAt(x, y, pred = () => true) { return this.world.objectsAt(x, y).find((o) => !o.hidden && pred(o)) || null; }
@@ -645,10 +671,14 @@ export class Game {
    */
   applyDamage(target, amount, opts = {}) {
     if (!target || target.dead) return 0;
-    const pre = this.events.emit('damage:before', { target, amount: Math.max(0, Math.floor(amount)), ...opts });
+    // opts.netRaw: a hit already modified on the attacker's client (multiplayer shared NPCs)
+    const pre = opts.netRaw ? { amount: Math.max(0, Math.floor(amount)) } : this.events.emit('damage:before', { target, amount: Math.max(0, Math.floor(amount)), ...opts });
     const dmg = Math.max(0, Math.min(Math.floor(pre.amount), target.hp));
     if (target.type === 'remote') {
       // remote HP is authoritative on its owner's client; show the splat only
+    } else if (target.netControlled) {
+      // shared NPC simulated by the multiplayer host: predict locally, the host applies it (src/net/npcs.js)
+      this.net.npcDamage?.(target, dmg, opts);
     } else {
       target.hp = target.hp - dmg;
     }
@@ -658,7 +688,7 @@ export class Game {
     target.lastAttackedTick = this.tickCount;
     if (opts.source) target.lastAttacker = opts.source;
     this.events.emit('damage', { target, amount: dmg, ...opts });
-    if (target.type !== 'remote' && target.hp <= 0) this.kill(target, opts.source || null);
+    if (target.type !== 'remote' && !target.netControlled && target.hp <= 0) this.kill(target, opts.source || null);
     return dmg;
   }
 
@@ -680,10 +710,15 @@ export class Game {
     for (const c of this.characters()) if (c.combatTarget === target) c.combatTarget = null;
 
     if (target.type === 'npc') {
+      // multiplayer shared NPC (src/net/npcs.js): {killer} credited locally, {dropOwner} (host), {remote} = the host
+      // rolls the drops and respawns it
+      const net = target.netSid != null ? this.net.npcDeath?.(target, killer) : null;
+      if (net) killer = net.killer;
       const ev = this.events.emit('npc:death', { npc: target, killer, noDrops: false });
       this.schedule(3, () => {
+        if (net?.remote) { if (target.dead) target.hidden = true; return; }
         if (!ev.noDrops && target.def.dropTable) {
-          const owner = killer?.type === 'player' ? killer.name : null;
+          const owner = net ? net.dropOwner : killer?.type === 'player' ? killer.name : null;
           for (const d of rollDropTable(target.def.dropTable)) this.spawnGroundItem(d.id, d.qty, target.x, target.y, { owner });
         }
         target.hidden = true;

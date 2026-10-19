@@ -370,7 +370,8 @@ function npcAttackBlocked(p, npc) {
   if (npc.dead) return 'That creature is already dead.';
   if (!isMultiAt(p) && !isMultiAt(npc)) {
     if (lastHitBy && lastHitBy !== npc && !lastHitBy.dead && !game.targetGone(lastHitBy) && tick() - lastHitTick < SINGLE_COMBAT_TICKS) return "I'm already under attack.";
-    const fighting = npc.combatTarget && npc.combatTarget !== p;
+    // co-op: friends in a multiplayer world may fight the same monster (src/net/npcs.js)
+    const fighting = npc.combatTarget && npc.combatTarget !== p && npc.combatTarget.type !== 'remote';
     if (fighting) return 'Someone else is fighting that.';
   }
   return null;
@@ -380,7 +381,8 @@ function npcAttackBlocked(p, npc) {
 function retaliate(defender, attacker) {
   if (!defender || defender.dead || !attacker || attacker === defender) return;
   if (defender.type === 'npc') {
-    if (attacker.type !== 'player') return;
+    // remote attackers: only on the multiplayer host, for shared NPCs (src/net/npcs.js)
+    if (attacker.type !== 'player' && attacker.type !== 'remote') return;
     if (!defender.def.combatLevel && !defender.def.attacks) return;
     defender.state.returning = false;
     if (!defender.combatTarget || defender.combatTarget.dead) {
@@ -395,14 +397,15 @@ function canAggro(npc, p) {
   const d = npc.def;
   if (!d.aggressive || npc.state.returning || p.dead || p.hidden) return false;
   if (npc.talkingTo) return false;
+  const remote = p.type === 'remote'; // multiplayer host: joiners sharing its NPCs (snapshot fields)
   const wild = game.world.getWildernessLevel(p.x, p.y) > 0;
   if (!wild && !d.alwaysAggressive) {
     if (p.combatLevel > (d.combatLevel || 1) * 2) return false;
-    if ((store(p).tol?.ticks || 0) >= TOLERANCE_TICKS) return false;
+    if (remote ? p.extra?.tolerant : (store(p).tol?.ticks || 0) >= TOLERANCE_TICKS) return false;
   }
   if (F.footDistance(npc, p) > (d.aggroRange ?? 3)) return false;
   if (Math.max(Math.abs(p.x - npc.spawnX), Math.abs(p.y - npc.spawnY)) > npc.wanderRadius + (d.aggroRange ?? 3) + 2) return false;
-  if (!isMultiAt(p) && busyWithOther(p, npc)) return false;
+  if (!isMultiAt(p) && (remote ? !!p.extra?.busyWith : busyWithOther(p, npc))) return false;
   if (!isMultiAt(p)) for (const o of game.npcs.values()) if (o !== npc && o.combatTarget === p && !o.dead) return false;
   return true;
 }
@@ -448,14 +451,21 @@ function pickWeighted(list) {
   return list[list.length - 1];
 }
 
-function npcAttack(npc, t, a) {
+/**
+ * An NPC attacks `t` with attack `a`. Multiplayer (src/net/npcs.js): on the host an attack on a remote player only
+ * plays the visuals - the target's own client rolls and applies it (opts.fromNet) against its real stats; bystanders
+ * replay the visuals only (opts.visual).
+ */
+function npcAttack(npc, t, a, opts = {}) {
   const kind = a.style === 'melee' ? 'melee' : a.style;
   const dist = F.footDistance(npc, t);
   const delay = a.delay ?? F.hitDelay(kind, dist);
   const anim = a.anim || (kind === 'magic' ? 'cast' : kind === 'ranged' ? 'shoot' : (kind === 'melee' && npc.def.attackAnim && !['shoot', 'cast'].includes(npc.def.attackAnim) ? npc.def.attackAnim : a.type));
   game.playAnim(npc, anim, 600);
   if (kind !== 'melee') projectileFor(npc, t, a.projectileColor, delay, { size: a.projectileSize ?? (a.effect === 'dragonfire' ? 0.22 : kind === 'magic' ? 0.14 : 0.07), arc: kind === 'magic' ? 0.5 : 0.3 });
-  if (a.message) game.message(a.message);
+  game.events.emit('npc:attack', { npc, target: t, attack: a, index: npcAttacks(npc).indexOf(a), fromNet: !!opts.fromNet });
+  if (opts.visual || t.type === 'remote') return;
+  if (a.message && t === game.player) game.message(a.message);
   let r, ignoresProtect = !!a.ignoresProtect;
   if (a.effect === 'dragonfire') {
     // dragonfire always lands; shields, Spellward and antifire potions each cut it down
@@ -500,7 +510,7 @@ function npcHitEffect(npc, t, a, dealt, hit) {
     case 'poison': if (dealt > 0 || a.style !== 'melee') poison(t, a.poison ?? npc.def.poisonDamage ?? 4, npc); break;
     case 'drain_prayer': if (t.type === 'player') { const n = a.drainAmount ?? Math.max(1, dealt); t.skills.setCurrent('prayer', t.skills.getCurrent('prayer') - n); } break;
     case 'bind': case 'freeze': bind(t, a.bindTicks ?? a.freezeTicks ?? 8); break;
-    case 'heal': if (dealt > 0) game.heal(npc, dealt); break;
+    case 'heal': if (dealt > 0) { if (npc.netControlled) game.net?.npcEffect?.(npc, 'heal', dealt); else game.heal(npc, dealt); } break;
     default:
       if (a.effect.startsWith('drain_') && t.type === 'player') lowerStat(t, a.effect.slice(6), a.drainAmount ?? 1);
   }
@@ -516,6 +526,7 @@ function poisonState(t) { return t.type === 'player' ? store(t) : t.state; }
 function poison(t, dmg = 4, source = null) {
   if (!t || t.dead || t.type === 'remote') return false;
   if (t.type === 'npc' && (t.def.immunePoison || t.def.immune?.poison)) return false;
+  if (t.netControlled) return !!game.net?.npcEffect?.(t, 'poison', dmg); // shared NPC: poisoned on the host
   const st = poisonState(t);
   if ((st.poisonImmune || 0) > 0) return false;
   if (st.poison && st.poison.dmg >= dmg) return false;
@@ -569,6 +580,7 @@ function bind(t, ticks) {
   if ((st.boundUntil || 0) + BIND_IMMUNITY > tick()) return false;
   st.boundUntil = tick() + ticks;
   t.path = [];
+  if (t.netControlled) game.net?.npcEffect?.(t, 'bind', ticks); // shared NPC: also held on the host
   game.spawnEffect('sparkle', t, { color: 0x50a030 });
   if (t === game.player) game.message('<col=307020>You are held fast and cannot move!</col>');
   return true;
@@ -581,12 +593,16 @@ function lowerStat(t, skill, amount) {
     const loss = (t.state.statLoss ||= {});
     const base = t.def.stats?.[skill] ?? 1;
     loss[skill] = Math.min(base - 1, (loss[skill] || 0) + amount);
+    if (t.netControlled) game.net?.npcEffect?.(t, 'lower', amount, skill);
   } else if (t.type === 'player') t.skills.boost(skill, -amount);
 }
 
 /** Lower a stat by a percentage (curses). */
 function drainPct(t, skill, pct) {
-  if (t.type === 'npc') { (t.state.drain ||= {})[skill] = Math.max(t.state.drain[skill] || 0, pct); t.state.drainTick = tick(); }
+  if (t.type === 'npc') {
+    (t.state.drain ||= {})[skill] = Math.max(t.state.drain[skill] || 0, pct); t.state.drainTick = tick();
+    if (t.netControlled) game.net?.npcEffect?.(t, 'drain', pct, skill);
+  }
   else if (t.type === 'player') t.skills.boost(skill, -Math.max(1, Math.floor(t.skills.getLevel(skill) * pct)));
 }
 
@@ -630,11 +646,24 @@ function processNpc(npc) {
       else if (!npc.path.length) { npc.state.returning = false; }
       return;
     }
-    if (!canAggro(npc, p)) return;
-    npc.combatTarget = t = p;
-    npc.faceTarget = p;
+    // multiplayer host: joiners sharing this NPC can be attacked too (nearest eligible player first)
+    const others = npc.netSid != null ? game.net?.npcAggroTargets?.() : null;
+    if (others?.length) {
+      let best = null, bd = Infinity;
+      for (const c of [p, ...others]) {
+        const dd = F.footDistance(npc, c);
+        if (dd < bd && canAggro(npc, c)) { best = c; bd = dd; }
+      }
+      if (!best) return;
+      t = best;
+    } else {
+      if (!canAggro(npc, p)) return;
+      t = p;
+    }
+    npc.combatTarget = t;
+    npc.faceTarget = t;
   }
-  if (t.dead || t.hidden || game.targetGone(t) || t.type !== 'player') { disengage(npc); return; }
+  if (t.dead || t.hidden || game.targetGone(t) || (t.type !== 'player' && t.type !== 'remote')) { disengage(npc); return; }
   const fromHome = Math.max(Math.abs(npc.x - npc.spawnX), Math.abs(npc.y - npc.spawnY));
   if (fromHome > npc.wanderRadius + (d.leashRange ?? 10) || F.footDistance(npc, t) > (d.chaseRange ?? 16)) { disengage(npc); return; }
   const atks = npcAttacks(npc);
@@ -677,19 +706,20 @@ function onTick() {
       if (st.antifire === 0) { st.superAntifire = false; game.message('<col=c06000>Your resistance to dragonfire has worn off.</col>'); }
     }
   }
+  // (multiplayer: shared NPCs on a joiner - npc.netControlled - are simulated by the host, see src/net/npcs.js)
   for (const npc of game.npcs.values()) {
-    if (npc.dead || npc.hidden) continue;
+    if (npc.dead || npc.hidden || npc.netControlled) continue;
     if (npc.state.poison || npc.state.poisonImmune) tickPoison(npc);
   }
   if (!p.dead) processPlayer(p);
   for (const npc of game.npcs.values()) {
-    if (npc.dead || npc.hidden) continue;
+    if (npc.dead || npc.hidden || npc.netControlled || (npc.netDormant && !npc.combatTarget)) continue;
     processNpc(npc);
   }
   // slow NPC recovery: 1 HP and 1 lost level per minute out of combat; curses fade after 3 minutes
   if (t % 100 === 0) {
     for (const npc of game.npcs.values()) {
-      if (npc.dead || npc.combatTarget) continue;
+      if (npc.dead || npc.combatTarget || npc.netControlled) continue;
       if (npc.hp < npc.maxHp) npc.hp++;
       const loss = npc.state.statLoss;
       if (loss) for (const k of Object.keys(loss)) if (--loss[k] <= 0) delete loss[k];
@@ -786,6 +816,11 @@ const api = {
   dragonfireProtection,
   registerSpecial, getSpecial,
   npcAttacks,
+  /** Multiplayer replay of a host-decided NPC attack (src/net/npcs.js): rolls it when `target` is the local player. */
+  npcAttack(npc, target, index, opts = {}) {
+    const a = npcAttacks(npc)[index];
+    if (a && target) npcAttack(npc, target, a, { ...opts, fromNet: true, visual: opts.visual || target !== game.player });
+  },
   /** {source, tick} of the last thing that damaged the local player. */
   lastHit: () => ({ source: lastHitBy, tick: lastHitTick }),
   /** True if the local player attacked or was attacked within `ticks` ticks. */
@@ -854,6 +889,8 @@ export function init(g) {
   ev.on('combat:style', () => game.ui.refreshTab('combat'));
 
   ev.on('player:respawn', ({ player }) => { curePoison(player); player._bind = {}; specArmed = false; lastHitBy = null; stopAttacking(player); });
+  // multiplayer: the host's NPCs leave a tolerant joiner alone (see canAggro)
+  ev.on('snapshot', ({ player, snap }) => { if (player === game.player) snap.tolerant = (store(player).tol?.ticks || 0) >= TOLERANCE_TICKS; });
   ev.on('npc:respawn', ({ npc }) => { npc.state.poison = null; npc.state.statLoss = null; npc.state.drain = null; npc.state.boundUntil = 0; npc.state.returning = false; });
   ev.on('game:start', updatePoisonOrb);
 
