@@ -6,14 +6,201 @@
   <title>Ashvale</title>
   <meta name="description" content="Ashvale - a browser adventure in a low-poly fantasy world.">
   <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="css/style.css">
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
-    }
-  }
+  <script>
+    // Loader (no build step). Writes the import map, the stylesheets and one <link rel="modulepreload"> per module
+    // (so the ~130 small files download in parallel instead of import-by-import), checks version.json, then starts
+    // src/main.js. Deployed builds version every module URL as ?v=BUILD through the import map, so a GitHub Pages
+    // deploy can never mix cached old modules with new ones; if version.json (fetched uncached) names a newer
+    // build than this (possibly cached) page, the page reloads itself once as ?v=<build>.
+    // Bump BUILD on deploy: `python tools/bump_build.py` (also regenerates MODULES). Locally (localhost, file:)
+    // nothing is versioned so edits show up without bumping; add ?cachebust to test the deploy path locally.
+    (function () {
+      /* BUILD:modules */
+      var BUILD = "20261019-141254";
+      var MODULES = [
+        "src/main.js",
+        "src/core/weapontypes.js",
+        "src/content/index.js",
+        "src/core/game.js",
+        "src/core/defaults.js",
+        "src/core/shops.js",
+        "src/core/registry.js",
+        "src/core/save.js",
+        "src/render/renderer.js",
+        "src/ui/ui.js",
+        "src/input/input.js",
+        "src/ui/charcreate.js",
+        "src/systems/index.js",
+        "src/net/index.js",
+        "src/audio/audio.js",
+        "src/content/map.js",
+        "src/content/items.js",
+        "src/content/npcs.js",
+        "src/content/objects.js",
+        "src/content/drops.js",
+        "src/content/shops.js",
+        "src/content/gathering.js",
+        "src/content/recipes.js",
+        "src/content/spells.js",
+        "src/content/prayers.js",
+        "src/content/quests.js",
+        "src/content/agility.js",
+        "src/content/thieving.js",
+        "src/content/slayer.js",
+        "src/core/events.js",
+        "src/core/interactions.js",
+        "src/core/actions.js",
+        "src/core/constants.js",
+        "src/core/drops.js",
+        "src/world/mapbuilder.js",
+        "src/world/pathfinding.js",
+        "src/entities/entities.js",
+        "src/render/terrainmesh.js",
+        "src/render/scenery.js",
+        "src/render/characters.js",
+        "src/render/camera.js",
+        "src/render/overlays.js",
+        "src/render/effects.js",
+        "src/ui/chatbox.js",
+        "src/ui/minimap.js",
+        "src/ui/worldmap.js",
+        "src/ui/sidepanel.js",
+        "src/ui/interfaces.js",
+        "src/ui/contextmenu.js",
+        "src/ui/icons.js",
+        "src/ui/util.js",
+        "src/render/models.js",
+        "src/systems/magic.js",
+        "src/systems/prayer.js",
+        "src/systems/combat.js",
+        "src/systems/death.js",
+        "src/systems/wilderness.js",
+        "src/systems/gathering.js",
+        "src/systems/production.js",
+        "src/systems/agility.js",
+        "src/systems/thieving.js",
+        "src/systems/slayer.js",
+        "src/systems/quests.js",
+        "src/net/session.js",
+        "src/net/trade.js",
+        "src/net/panel.js",
+        "src/net/shared.js",
+        "src/net/npcs.js",
+        "src/net/world.js",
+        "src/net/protocol.js",
+        "src/audio/synth.js",
+        "src/audio/sfx.js",
+        "src/audio/music.js",
+        "src/audio/ambience.js",
+        "src/audio/hooks.js",
+        "src/audio/ui.js",
+        "src/world/terrain.js",
+        "src/content/map_regions/wilderness.js",
+        "src/content/map_regions/vale.js",
+        "src/content/map_regions/coast.js",
+        "src/content/map_regions/east.js",
+        "src/content/map_regions/dungeons.js",
+        "src/content/visuals.js",
+        "src/content/items_metal.js",
+        "src/content/items_gear.js",
+        "src/content/npcs_town.js",
+        "src/content/npcs_monsters.js",
+        "src/content/npcs_spawns.js",
+        "src/content/scenery_models.js",
+        "src/content/scenery_defs.js",
+        "src/content/world_flavor.js",
+        "src/content/gathering_visuals.js",
+        "src/content/gathering_items.js",
+        "src/content/gathering_nodes.js",
+        "src/content/gathering_hunter.js",
+        "src/content/gathering_farming.js",
+        "src/content/gathering_spawns.js",
+        "src/content/recipes_models.js",
+        "src/content/recipes_smithing.js",
+        "src/content/recipes_cooking.js",
+        "src/content/recipes_wood.js",
+        "src/content/recipes_crafting.js",
+        "src/content/recipes_herblore.js",
+        "src/content/recipes_runebinding.js",
+        "src/content/recipes_construction.js",
+        "src/content/recipes_world.js",
+        "src/content/quests_core.js",
+        "src/content/quests_more.js",
+        "src/content/agility_models.js",
+        "src/world/world.js",
+        "src/core/rng.js",
+        "src/core/skills.js",
+        "src/core/container.js",
+        "src/core/equipment.js",
+        "src/render/materials.js",
+        "src/core/xp.js",
+        "src/ui/help.js",
+        "src/systems/combat_formulas.js",
+        "src/systems/combat_specials.js",
+        "src/systems/combat_ui.js",
+        "src/systems/pvp.js",
+        "src/systems/gathering_util.js",
+        "src/systems/hunter.js",
+        "src/systems/farming.js",
+        "src/systems/production_ui.js",
+        "src/systems/firemaking.js",
+        "src/systems/herblore.js",
+        "src/systems/runebinding.js",
+        "src/systems/construction.js",
+        "src/systems/magic_utility.js",
+        "src/audio/themes.js",
+        "src/content/map_regions/util.js",
+        "src/content/recipes_util.js",
+        "src/content/quest_util.js",
+        "src/content/quest_models.js",
+        "src/content/spells_utility.js"
+      ];
+      /* /BUILD:modules */
+      var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.169.0/';
+      var EXTERNAL = [THREE_URL + 'build/three.module.js', THREE_URL + 'examples/jsm/utils/BufferGeometryUtils.js'];
+      var host = location.hostname, params = new URLSearchParams(location.search);
+      var dev = location.protocol === 'file:' || host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || /\.(localhost|test)$/.test(host);
+      if (params.has('cachebust')) dev = false;
+      var V = dev ? '' : '?v=' + encodeURIComponent(BUILD);
+      window.ASHVALE_BUILD = BUILD;
+      window.ASHVALE_DEV = dev;
+      var imports = { three: THREE_URL + 'build/three.module.js', 'three/addons/': THREE_URL + 'examples/jsm/' };
+      if (V) MODULES.forEach(function (m) { imports['./' + m] = './' + m + V; });
+      var h = '<script type="importmap">' + JSON.stringify({ imports: imports }) + '<\/script>' +
+        '<link rel="stylesheet" href="css/style.css' + V + '"><link rel="stylesheet" href="css/worldmap.css' + V + '">';
+      EXTERNAL.forEach(function (u) { h += '<link rel="modulepreload" href="' + u + '">'; });
+      MODULES.forEach(function (m) { h += '<link rel="modulepreload" href="' + m + V + '">'; });
+      document.write(h);
+      window.ASHVALE_EXPECTED = MODULES.length ? MODULES.length + EXTERNAL.length + 1 : 130;
+
+      var started = false;
+      function start() {
+        if (started) return;
+        started = true;
+        var go = function () {
+          var s = document.createElement('script');
+          s.type = 'module';
+          s.src = 'src/main.js' + V;
+          document.body.appendChild(s);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+      }
+      if (dev || !window.fetch) { start(); return; }
+      var timer = setTimeout(start, 2500); // a slow version check never blocks the game
+      fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        if (started) return;
+        var latest = j && typeof j.build === 'string' ? j.build : null;
+        if (latest && latest !== BUILD && params.get('v') !== latest) {
+          // this page is an older cached copy: load the new build under a fresh URL (keeps ?join= and friends)
+          clearTimeout(timer);
+          params.set('v', latest);
+          location.replace(location.pathname + '?' + params.toString() + location.hash);
+          return;
+        }
+        clearTimeout(timer);
+        start();
+      }).catch(function () { clearTimeout(timer); start(); });
+    })();
   </script>
   <!-- PeerJS (global `Peer`) for the networking module in src/net/. -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
@@ -38,10 +225,10 @@
     <div id="loading"><div class="loading-box"><div class="loading-title">Ashvale</div><div class="loading-bar"><div class="loading-fill"></div></div><div class="loading-text">Loading game files...</div><noscript>Ashvale needs JavaScript.</noscript></div></div>
   </div>
   <script>
-    // Boot progress: counts the ES modules as they arrive (no build step, so ~125 small files), then main.js
-    // reports the remaining phases through window.ashvaleLoading(text, fraction).
+    // Boot progress: counts the module files as they arrive (PerformanceObserver), then main.js reports the
+    // remaining phases through window.ashvaleLoading(text, fraction).
     (function () {
-      var EXPECTED = 125, seen = 0, done = false, fill = null, text = null;
+      var EXPECTED = window.ASHVALE_EXPECTED || 130, seen = 0, done = false, fill = null, text = null;
       function els() { fill = fill || document.querySelector('#loading .loading-fill'); text = text || document.querySelector('#loading .loading-text'); }
       window.ashvaleLoading = function (msg, frac) {
         els();
@@ -50,14 +237,17 @@
         if (frac >= 1) done = true;
       };
       try {
+        var counted = {};
         new PerformanceObserver(function (list) {
           if (done) return;
-          list.getEntries().forEach(function (e) { if (/\/src\/|three|peerjs/.test(e.name)) seen++; });
+          list.getEntries().forEach(function (e) {
+            if (!/\/src\/|three|peerjs/.test(e.name) || counted[e.name]) return;
+            counted[e.name] = 1; seen++;
+          });
           window.ashvaleLoading('Loading game files... (' + seen + ')', 0.85 * Math.min(1, seen / EXPECTED));
         }).observe({ type: 'resource', buffered: true });
       } catch (e) { /* old browser: text only */ }
     })();
   </script>
-  <script type="module" src="src/main.js"></script>
 </body>
 </html>

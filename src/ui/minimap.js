@@ -4,6 +4,7 @@ import { TERRAIN_TYPES } from '../world/terrain.js';
 import { tileRand } from '../core/rng.js';
 import { MAX_RUN_ENERGY } from '../core/constants.js';
 import { el } from './util.js';
+import { drawFlag } from './worldmap.js';
 
 const S = 4;          // pixels per tile in the minimap image
 const SIZE = 164;     // minimap canvas size (css px)
@@ -125,7 +126,9 @@ export class Minimap {
     const pv = this.game.renderer.viewFor(this.game.player);
     const tx = Math.floor(pv.pos.x + mx / S), ty = Math.floor(pv.pos.z + my / S);
     this.ui.closeInterfaces();
-    this.game.walkTo(this.game.player, tx, ty);
+    const p = this.game.player;
+    p.tripRun = e.ctrlKey ? !p.runToggled : null; // Ctrl+click: run (or walk) for this trip only
+    this.game.walkTo(p, tx, ty);
   }
 
   draw() {
@@ -156,6 +159,21 @@ export class Minimap {
       const fx = (dest.x + 0.5 - px) * S, fy = (dest.y + 0.5 - py) * S;
       ctx.fillStyle = '#5a3a1a'; ctx.fillRect(fx - 0.5, fy - 9, 1.5, 9);
       ctx.fillStyle = '#e02020'; ctx.beginPath(); ctx.moveTo(fx + 1, fy - 9); ctx.lineTo(fx + 7, fy - 7); ctx.lineTo(fx + 1, fy - 4.5); ctx.fill();
+    }
+    // world-map marker: a yellow flag, or an arrow on the rim pointing at it when it is off the minimap
+    const mk = this.ui.worldMap?.marker;
+    if (mk) {
+      const fx = (mk.x + 0.5 - px) * S, fy = (mk.y + 0.5 - py) * S;
+      const rim = SIZE / 2 - 9;
+      if (Math.hypot(fx, fy) <= rim) {
+        ctx.save(); ctx.translate(fx, fy); ctx.rotate(-yaw); drawFlag(ctx, 0, 0, 1, '#ffd21f'); ctx.restore();
+      } else {
+        const a = Math.atan2(fy, fx);
+        ctx.save(); ctx.translate(Math.cos(a) * rim, Math.sin(a) * rim); ctx.rotate(a);
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -6); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffd21f'; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3.5, -4.2); ctx.lineTo(-3.5, 4.2); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     }
     // map icons (kept upright)
     for (const ic of this.icons) {

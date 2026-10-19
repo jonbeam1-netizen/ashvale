@@ -17,3 +17,7 @@ import './quests.js';
 import './agility.js';
 import './thieving.js';
 import './slayer.js';
+// activities (minigames, riddle trails, pets)
+import './minigames.js';
+import './clues.js';
+import './pets.js';

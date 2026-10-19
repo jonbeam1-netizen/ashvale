@@ -13,6 +13,7 @@ import { InputManager } from './input/input.js';
 import { showCharacterCreation } from './ui/charcreate.js';
 import { initSystems } from './systems/index.js';
 import * as net from './net/index.js';
+import { initAudio } from './audio/audio.js';
 
 const AUTOSAVE_MS = 30_000;
 
@@ -20,13 +21,16 @@ const AUTOSAVE_MS = 30_000;
 const progress = (text, frac) => {
   try { performance.mark(`ashvale:${text}`); window.ashvaleLoading?.(text, frac); } catch { /* ignore */ }
 };
-/** Let the browser paint the loading screen before a long synchronous step. */
-const nextPaint = () => new Promise((r) => {
+/**
+ * Let the browser paint the loading screen before a long synchronous step. A hidden tab (an invite link opened
+ * in the background) paints nothing and gets no animation frames and ~1 s timers, so it just carries on.
+ */
+const nextPaint = () => (document.hidden ? Promise.resolve() : new Promise((r) => {
   let done = false;
   const go = () => { if (!done) { done = true; setTimeout(r, 0); } };
   requestAnimationFrame(go);
-  setTimeout(go, 50); // background tabs get no animation frames: don't stall the boot
-});
+  setTimeout(go, 50); // the tab may be hidden meanwhile: don't stall the boot
+}));
 
 async function boot() {
   progress('Building the world...', 0.88);
@@ -55,6 +59,7 @@ async function boot() {
   new InputManager(game);
   initSystems(game);
   try { net.init(game); } catch (e) { console.error('[net] init failed', e); }
+  initAudio(game); // procedural music / sfx / ambience (src/audio); never throws
   progress('Ready', 1);
 
   const frame = () => {
@@ -89,6 +94,7 @@ async function boot() {
   window.addEventListener('beforeunload', () => saveGame(game));
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(game); });
   game.events.emit('game:ready', { game });
+  watchForUpdates(game);
 }
 
 /** Chat greeting; first-time players also get a short controls primer. */
@@ -101,6 +107,25 @@ function welcome(game, firstTime) {
   tip('Turn the camera with the <col=800000>arrow keys</col> or by dragging with the <col=800000>middle mouse button</col>; <col=800000>scroll</col> to zoom. Click the compass to face north.');
   tip('Your first goal: talk to <col=800000>Mira</col>, the town guide in the square (the blue <col=800000>?</col> on the minimap). She needs a hand.');
   tip('Want company? Open the <col=800000>Multiplayer</col> tab (the smiley face) to play with friends.');
+}
+
+/**
+ * Deployed builds (see index.html / tools/bump_build.py): every 10 minutes check version.json and tell the
+ * player once when a newer build is out (the save is kept; a refresh loads the new version).
+ */
+function watchForUpdates(game) {
+  const build = window.ASHVALE_BUILD;
+  if (!build || window.ASHVALE_DEV) return;
+  let told = false;
+  const check = () => {
+    if (told || document.hidden) return;
+    fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+      if (told || !j?.build || j.build === build) return;
+      told = true;
+      game.message('<col=8a5a00>A new version of Ashvale is available. Your progress is saved - refresh the page to update.</col>');
+    }).catch(() => { /* offline: try again later */ });
+  };
+  setInterval(check, 10 * 60_000);
 }
 
 /** Move an unreadable save out of the way (kept under a .broken key so it is not lost). */

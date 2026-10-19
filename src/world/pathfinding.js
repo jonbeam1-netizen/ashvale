@@ -42,7 +42,10 @@ const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -
  *   mode 'tile'     - stand anywhere inside the rect (default)
  *   mode 'adjacent' - stand on a tile cardinally adjacent to the rect (not inside)
  *   mode 'range'    - stand within Chebyshev `range` of the rect (not inside)
- * @param {object} opts { maxNodes = 8000, radius = 64 }
+ * @param {object} opts { maxNodes = 8000, radius = 72, size = 1 }
+ *   size > 1: the mover is a size x size footprint anchored at its north-west tile (big NPCs): every step must
+ *   fit the whole footprint, and the 'adjacent'/'range' goals are measured from the footprint (the same gap
+ *   rules as combat_formulas.inAttackRange). 'tile' still means "anchor inside the rect".
  * @returns {{path: {x,y}[], reached: boolean}}
  */
 export function findPath(world, sx, sy, goal, opts = {}) {
@@ -52,22 +55,24 @@ export function findPath(world, sx, sy, goal, opts = {}) {
   const range = goal.range ?? 1;
   const { x0, y0, x1, y1 } = goal;
 
+  const size = Math.max(1, opts.size || 1), e = size - 1;
   const distToRect = (x, y) => Math.max(Math.max(x0 - x, 0, x - x1), Math.max(y0 - y, 0, y - y1));
   const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  // gap between the mover's footprint and the goal rect along each axis (0 = overlapping on that axis)
+  const gapX = (x) => Math.max(x0 - (x + e), 0, x - x1);
+  const gapY = (y) => Math.max(y0 - (y + e), 0, y - y1);
   const isGoal = (x, y) => {
     if (mode === 'tile') return inside(x, y);
-    if (inside(x, y)) return false;
-    if (mode === 'adjacent') {
-      // cardinal adjacency to the rect
-      const dx = Math.max(x0 - x, 0, x - x1), dy = Math.max(y0 - y, 0, y - y1);
-      return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
-    }
-    return distToRect(x, y) <= range;
+    const dx = gapX(x), dy = gapY(y);
+    if (dx === 0 && dy === 0) return false; // standing on/overlapping the target
+    if (mode === 'adjacent') return (dx === 1 && dy === 0) || (dx === 0 && dy === 1); // cardinal adjacency
+    return Math.max(dx, dy) <= range;
   };
   const h = (x, y) => {
-    const d = distToRect(x, y);
-    return mode === 'tile' ? d : Math.max(0, d - (mode === 'range' ? range : 1));
+    if (mode === 'tile') return distToRect(x, y);
+    return Math.max(0, Math.max(gapX(x), gapY(y)) - (mode === 'range' ? range : 1));
   };
+  const step = size > 1 ? (x, y, dx, dy) => world.canStepSize(x, y, dx, dy, size) : (x, y, dx, dy) => world.canStep(x, y, dx, dy);
 
   if (isGoal(sx, sy)) return { path: [], reached: true };
 
@@ -94,7 +99,7 @@ export function findPath(world, sx, sy, goal, opts = {}) {
       const dx = DIRS[d][0], dy = DIRS[d][1];
       const nx = cur.x + dx, ny = cur.y + dy;
       if (Math.abs(nx - sx) > radius || Math.abs(ny - sy) > radius) continue;
-      if (!world.canStep(cur.x, cur.y, dx, dy)) continue;
+      if (!step(cur.x, cur.y, dx, dy)) continue;
       const g = cur.g + (d < 4 ? 1 : 1.0001);
       const k = key(nx, ny);
       let n = nodes.get(k);

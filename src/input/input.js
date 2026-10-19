@@ -18,6 +18,12 @@ export class InputManager {
     this.canvas.addEventListener('mousemove', (e) => { this.mouse = { x: e.clientX, y: e.clientY, inside: true }; });
     this.canvas.addEventListener('mouseleave', () => { this.mouse.inside = false; this.game.ui.setHoverText(''); });
     window.addEventListener('keydown', (e) => this.onKey(e));
+    // modifier state for clicks on menus (Ctrl+click = run / walk for one trip, Shift = shift-drop in the inventory)
+    this.mods = { ctrl: false, shift: false };
+    const mod = (e) => { this.mods.ctrl = e.ctrlKey || e.metaKey; this.mods.shift = e.shiftKey; };
+    window.addEventListener('keydown', mod, true);
+    window.addEventListener('keyup', mod, true);
+    window.addEventListener('blur', () => { this.mods.ctrl = this.mods.shift = false; });
     this.initTouch();
   }
 
@@ -183,19 +189,23 @@ export class InputManager {
     if (e.button === 2) {
       g.ui.menu.show(e.clientX, e.clientY, entries.map((en) => ({
         option: en.option, targetHtml: en.targetHtml,
-        action: () => this.run(en, e.clientX, e.clientY),
+        action: () => this.run(en, e.clientX, e.clientY, this.mods.ctrl),
       })));
       return;
     }
     if (e.button === 0) {
       const en = entries[0];
-      if (en && en.option !== 'Cancel') this.run(en, e.clientX, e.clientY);
+      if (en && en.option !== 'Cancel') this.run(en, e.clientX, e.clientY, !!(e.ctrlKey || e.metaKey));
     }
   }
 
-  run(en, x, y) {
+  /** Run a menu entry. ctrl: Ctrl+click runs for this one trip (or walks, when run is switched on). */
+  run(en, x, y, ctrl = false) {
     const g = this.game;
-    if (en.option !== 'Examine' && en.option !== 'Cancel') g.ui.closeInterfaces();
+    if (en.option !== 'Examine' && en.option !== 'Cancel') {
+      g.ui.closeInterfaces();
+      g.player.tripRun = ctrl ? !g.player.runToggled : null;
+    }
     if (en.cross) g.ui.clickCross(x, y, en.cross);
     en.action();
   }

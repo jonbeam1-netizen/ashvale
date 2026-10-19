@@ -7,6 +7,7 @@ import { SKILL_GRID, SKILL_NAMES, EQUIP_SLOTS, BONUS_KEYS, BONUS_LABELS } from '
 import { xpForLevel } from '../core/xp.js';
 import { getItem, getWeaponType, allQuests, allPrayers, allSpells } from '../core/registry.js';
 import { saveGame, deleteSave } from '../core/save.js';
+import { openHelp } from './help.js';
 
 const TABS = [
   { id: 'combat', title: 'Combat Options', icon: () => getShapeIcon('sword', '#c8c8d0', '#c8a040') },
@@ -109,12 +110,16 @@ export class SidePanel {
         s.addEventListener('mousedown', (e) => this.invMouseDown(e, i));
         s.addEventListener('mouseup', (e) => this.invMouseUp(e, i));
         s.addEventListener('contextmenu', (e) => { e.preventDefault(); this.invContext(e, i); });
-        s.addEventListener('mouseenter', () => this.invHover(i));
-        s.addEventListener('mouseleave', () => this.ui.setHoverText(''));
+        s.addEventListener('mouseenter', () => { this.hoverSlot = i; this.invHover(i); });
+        s.addEventListener('mouseleave', () => { this.hoverSlot = null; this.ui.setHoverText(''); });
         grid.appendChild(s);
         this.invSlots.push(s);
       }
       pane.appendChild(grid);
+      // pressing / releasing Shift over an item flips its hover text to "Drop" (shift-drop) and back
+      const shiftHover = (e) => { if (e.key === 'Shift' && this.hoverSlot != null) this.invHover(this.hoverSlot); };
+      window.addEventListener('keydown', shiftHover);
+      window.addEventListener('keyup', shiftHover);
     }
     const inv = this.game.player.inventory;
     const sel = this.ui.selected;
@@ -160,10 +165,19 @@ export class SidePanel {
       this.game.player.inventory.swap(d.slot, slot);
       return;
     }
-    this.invClick(slot);
+    this.invClick(slot, e.shiftKey);
   }
 
-  invClick(slot) {
+  /** Shift-click drops (OSRS-style), unless switched off in Settings or a bank/shop/selection is active. */
+  shiftDropOn(shift) {
+    return !!shift && this.game.player.settings.shiftDrop !== false && !this.ui.selected && !this.ui.bankOpen && !this.ui.shopOpen;
+  }
+
+  invClick(slot, shift = false) {
+    if (this.shiftDropOn(shift) && this.game.player.inventory.get(slot) && this.itemOptions(slot).includes('Drop')) {
+      this.doItemOption(slot, 'Drop');
+      return;
+    }
     const inv = this.game.player.inventory;
     const it = inv.get(slot);
     const sel = this.ui.selected;
@@ -220,6 +234,7 @@ export class SidePanel {
     const name = getItem(it.id).name;
     const sel = this.ui.selected;
     if (sel?.type === 'item') this.ui.setHoverText(`Use <span style="color:#ff9040">${escapeHtml(sel.name)} -&gt; ${escapeHtml(name)}</span>`);
+    else if (this.shiftDropOn(this.game.input?.mods?.shift) && opts.includes('Drop')) this.ui.setHoverText(`Drop <span style="color:#ff9040">${escapeHtml(name)}</span>`);
     else this.ui.setHoverText(`${escapeHtml(opts[0])} <span style="color:#ff9040">${escapeHtml(name)}</span>${opts.length > 1 ? ` / ${opts.length - 1} more options` : ''}`);
   }
 
@@ -414,17 +429,24 @@ export class SidePanel {
       pane.appendChild(row);
     };
     toggle('shadows', 'Shadows', () => this.game.renderer.applySettings());
+    this.game.renderer.settingsDefaults?.(s); // graphics (render/renderer.js)
+    toggle('highQuality', 'High quality (glow, colour grading)', () => this.game.renderer.applySettings());
+    toggle('weather', 'Weather effects', () => this.game.renderer.applySettings());
+    toggle('alwaysDay', 'Always day');
     toggle('roofs', 'Show roofs');
     toggle('xpDrops', 'XP drops');
     toggle('wildyWarning', 'Wilderness warning');
     toggle('showFps', 'Show FPS');
     if (s.autoQuality === undefined) s.autoQuality = true;
     toggle('autoQuality', 'Auto quality (lower settings if slow)');
+    if (s.shiftDrop === undefined) s.shiftDrop = true;
+    toggle('shiftDrop', 'Shift-click drops items');
     const dd = el('label', 'set-row', `Draw distance <select><option value="0">Short</option><option value="1">Normal</option><option value="2">Far</option></select>`);
     const sel = dd.querySelector('select');
     sel.value = String(s.drawDistance ?? 1);
     sel.onchange = () => { s.drawDistance = Number(sel.value); this.game.renderer.applySettings(); };
     pane.appendChild(dd);
+    this.game.audio?.renderSettings(pane); // Sound section (src/audio/ui.js)
     const save = el('button', 'btn', 'Save game');
     save.onclick = () => { if (saveGame(this.game)) this.game.message('Game saved.'); };
     const reset = el('button', 'btn danger', 'Delete character');
@@ -435,6 +457,8 @@ export class SidePanel {
       location.reload();
     };
     const info = el('div', 'muted pad', `Played: ${Math.floor((p.playTime * 0.6) / 60)} min`);
-    pane.append(save, reset, info);
+    const help = el('button', 'btn help-btn', 'Controls &amp; tips');
+    help.onclick = () => openHelp(this.ui);
+    pane.append(help, save, reset, info);
   }
 }

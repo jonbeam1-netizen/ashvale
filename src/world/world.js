@@ -65,6 +65,32 @@ export class World {
     return true;
   }
 
+  /** Can a `size` x `size` footprint stand with its north-west corner on (x, y)? */
+  fits(x, y, size = 1) {
+    if (size <= 1) return this.isWalkable(x, y);
+    for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) if (!this.isWalkable(x + dx, y + dy)) return false;
+    return true;
+  }
+
+  /**
+   * Footprint-aware step (NPCs bigger than 1x1): only the tiles entering the footprint are tested (the leading
+   * column/row); a diagonal needs both orthogonal steps to be possible, like canStep.
+   */
+  canStepSize(x, y, dx, dy, size = 1) {
+    if (size <= 1) return this.canStep(x, y, dx, dy);
+    if (dx) {
+      const cx = dx > 0 ? x + size : x - 1;
+      const ya = dy < 0 ? y - 1 : y, yb = dy > 0 ? y + size : y + size - 1;
+      for (let yy = ya; yy <= yb; yy++) if (!this.isWalkable(cx, yy)) return false;
+    }
+    if (dy) {
+      const ry = dy > 0 ? y + size : y - 1;
+      const xa = dx < 0 ? x - 1 : x, xb = dx > 0 ? x + size : x + size - 1;
+      for (let xx = xa; xx <= xb; xx++) if (!this.isWalkable(xx, ry)) return false;
+    }
+    return true;
+  }
+
   // ---- areas --------------------------------------------------------------------------------
   setAreas(list) { this.areas = [...list].sort((a, b) => (b.priority || 0) - (a.priority || 0)); }
 

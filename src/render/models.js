@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { getItem } from '../core/registry.js';
+import { makeVCMaterial, CHAR_MATERIAL } from './materials.js';
 
 // ------------------------------------------------------------------------------------------------
 // Geometry builder
@@ -46,6 +47,9 @@ export class GeoBuilder {
       }
     }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const gl = this.glowNext ?? glowOf(_c);
+    this.glowNext = null;
+    g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n).fill(gl), 1));
     this.parts.push(g);
     return this;
   }
@@ -67,8 +71,20 @@ export class GeoBuilder {
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 
-/** Shared vertex-colour material for everything built by GeoBuilder. */
-export const VC_MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+/**
+ * Self-illumination of a primitive from its colour: warm, very bright colours (flames, lamp glass,
+ * lit windows) and bright cyan crystals glow at night. Templates can force it for the next primitive
+ * with `b.glowNext = 0..1`.
+ */
+export function glowOf(c) {
+  const { r, g, b } = c; // linear
+  if (r > 0.86 && g > 0.1 && r - b > 0.35 && g < r + 0.01) return 1;     // flame / lamp (#ff8a20 .. #ffe9a0)
+  if (b > 0.86 && g > 0.6 && r < 0.68) return 0.8;                      // crystal / moon glow (#8ad8f0)
+  return 0;
+}
+
+/** Shared vertex-colour material for everything built by GeoBuilder (glow-aware, see materials.js). */
+export const VC_MATERIAL = makeVCMaterial();
 
 const shade = (hex, f) => { const c = new THREE.Color(hex); c.multiplyScalar(f); return '#' + c.getHexString(); };
 
@@ -252,12 +268,9 @@ registerSceneryTemplate('fire', (b) => { b.box('#333', 0.1, 0.1, 0.1, [0, 0.05, 
       f.position.set((i - 1) * 0.08, 0.35, (i % 2) * 0.06);
       g.add(f); flames.push(f);
     }
-    const light = new THREE.PointLight(0xff8a30, 1.2, 5, 1.6);
-    light.position.y = 0.6;
-    g.add(light);
+    // the light itself comes from the pooled LightManager (render/lights.js, template 'fire')
     g.userData.update = (t) => {
       flames.forEach((f, i) => { const s = 0.85 + Math.sin(t * 12 + i * 2) * 0.15; f.scale.set(1, s, 1); f.rotation.y = t * (1 + i); });
-      light.intensity = 1.1 + Math.sin(t * 15) * 0.2;
     };
     return g;
   },
@@ -495,7 +508,7 @@ const characterTemplates = new Map();
 /** fn(opts) -> rig {kind, root, parts, height, width}. See buildBiped for the parts contract. */
 export function registerCharacterTemplate(name, fn) { characterTemplates.set(name, fn); }
 
-const meshOf = (b) => { const m = new THREE.Mesh(b.build(), VC_MATERIAL); m.castShadow = true; return m; };
+const meshOf = (b) => { const m = new THREE.Mesh(b.build(), CHAR_MATERIAL); m.castShadow = true; return m; };
 const pivot = (parent, x, y, z) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
 
 /** Visual description of an equipped item: {shape, color, color2}. */

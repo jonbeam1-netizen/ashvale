@@ -117,8 +117,10 @@ export class Game {
     if (!p.dead) {
       this.updateFollow(p);
       this.preInteraction(p);
-      this.stepAlongPath(p, p.running && p.runEnergy > 0 ? 2 : 1);
+      // p.tripRun (Ctrl+click): run (or walk, when run is on) for this one trip only
+      this.stepAlongPath(p, (p.tripRun ?? p.running) && p.runEnergy > 0 ? 2 : 1);
       this.postInteraction(p);
+      if (p.tripRun != null && !p.path.length && !p.interaction) p.tripRun = null;
       this.actions.process(p);
       this.updateRunEnergy(p);
       p.playTime++;
@@ -126,8 +128,10 @@ export class Game {
 
     // npcs (an NPC the player is walking over to talk/trade with waits instead of wandering off)
     const approaching = p.interaction?.target?.type === 'npc' && p.interaction.option?.toLowerCase() !== 'attack' ? p.interaction.target : null;
+    this.buildNpcOccupancy();
     for (const npc of this.npcs.values()) {
       if (npc.dead || npc.hidden) continue;
+      const ox = npc.x, oy = npc.y;
       // multiplayer (src/net/npcs.js): a joiner only walks shared NPCs to the host's positions; the host
       // leaves NPCs far from every player dormant
       if (npc.netControlled) { this.stepAlongPath(npc, npc.netSpeed || 1); continue; }
@@ -135,7 +139,12 @@ export class Game {
       if (npc.action) this.actions.process(npc);
       if (npc === approaching && !npc.combatTarget && !npc.forced) npc.path = [];
       if (!npc.combatTarget && !npc.path.length && !npc.talkingTo && npc !== approaching && npc.wanderRadius > 0 && Math.random() < 0.08) this.wander(npc);
+      // idle wanderers don't walk into each other (chasing / returning / forced movement is never held up, and an
+      // NPC already overlapping another one may always step away)
+      if (npc.path.length && !npc.combatTarget && !npc.forced && !npc.state?.returning
+        && this.npcOccupied(npc, npc.path[0].x, npc.path[0].y) && !this.npcOccupied(npc, npc.x, npc.y)) npc.path = [];
       this.stepAlongPath(npc, 1);
+      if (npc.x !== ox || npc.y !== oy) { this.markNpc(npc, ox, oy, -1); this.markNpc(npc, npc.x, npc.y, 1); }
     }
 
     // remote players: walk toward their last networked position
@@ -167,7 +176,7 @@ export class Game {
   // ---- movement -----------------------------------------------------------------------------
   /** Compute a path for `entity` to a goal rect (see pathfinding.js). Sets entity.path. */
   pathTo(entity, goal) {
-    const { path, reached } = findPath(this.world, entity.x, entity.y, goal);
+    const { path, reached } = findPath(this.world, entity.x, entity.y, goal, { size: entity.size || 1 });
     entity.path = path;
     return reached;
   }
@@ -230,10 +239,12 @@ export class Game {
   stepAlongPath(c, maxSteps) {
     let moved = 0;
     if (c.forced) maxSteps = 1;
+    // big NPCs need their whole footprint free (shared NPCs on a joiner just follow the host's valid positions)
+    const size = c.netControlled ? 1 : c.size || 1;
     while (moved < maxSteps && c.path.length) {
       const next = c.path[0];
       const dx = Math.sign(next.x - c.x), dy = Math.sign(next.y - c.y);
-      if (Math.abs(next.x - c.x) > 1 || Math.abs(next.y - c.y) > 1 || (!c.forced && !this.world.canStep(c.x, c.y, dx, dy))) {
+      if (Math.abs(next.x - c.x) > 1 || Math.abs(next.y - c.y) > 1 || (!c.forced && !this.world.canStepSize(c.x, c.y, dx, dy, size))) {
         c.path = []; // blocked: give up (caller may re-path)
         break;
       }
@@ -269,12 +280,44 @@ export class Game {
   }
 
   wander(npc) {
-    const r = npc.wanderRadius;
+    const r = npc.wanderRadius, size = npc.size || 1;
     const tx = npc.spawnX + Math.round((Math.random() * 2 - 1) * r);
     const ty = npc.spawnY + Math.round((Math.random() * 2 - 1) * r);
-    if (!this.world.isWalkable(tx, ty)) return;
-    const { path } = findPath(this.world, npc.x, npc.y, { x0: tx, y0: ty, x1: tx, y1: ty }, { maxNodes: 200, radius: r + 4 });
+    // the whole footprint must fit, and don't pick a spot another NPC is standing on
+    if (!this.world.fits(tx, ty, size) || this.npcOccupied(npc, tx, ty)) return;
+    const { path } = findPath(this.world, npc.x, npc.y, { x0: tx, y0: ty, x1: tx, y1: ty }, { maxNodes: 200, radius: r + 4, size });
     npc.path = path.slice(0, 8);
+  }
+
+  /** Rebuild the per-tick NPC occupancy grid (counts of NPC footprints per tile; used to stop wanderers stacking). */
+  buildNpcOccupancy() {
+    const w = this.world;
+    if (!this._npcOcc || this._npcOcc.length !== w.width * w.height) this._npcOcc = new Uint8Array(w.width * w.height);
+    else this._npcOcc.fill(0);
+    for (const n of this.npcs.values()) if (!n.dead && !n.hidden) this.markNpc(n, n.x, n.y, 1);
+  }
+
+  markNpc(npc, x, y, d) {
+    const occ = this._npcOcc, w = this.world, s = npc.size || 1;
+    if (!occ) return;
+    for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
+      if (!w.inBounds(x + dx, y + dy)) continue;
+      const i = w.idx(x + dx, y + dy);
+      occ[i] = d > 0 ? Math.min(255, occ[i] + 1) : Math.max(0, occ[i] - 1);
+    }
+  }
+
+  /** True if `npc`'s footprint placed at (x, y) would overlap another NPC (its own current tiles excluded). */
+  npcOccupied(npc, x, y) {
+    const occ = this._npcOcc, w = this.world, s = npc.size || 1;
+    if (!occ) return false;
+    for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
+      const tx = x + dx, ty = y + dy;
+      if (!w.inBounds(tx, ty)) continue;
+      const own = !npc.dead && !npc.hidden && tx >= npc.x && tx < npc.x + s && ty >= npc.y && ty < npc.y + s ? 1 : 0;
+      if (occ[w.idx(tx, ty)] > own) return true;
+    }
+    return false;
   }
 
   /** Re-path `entity` so it ends up within `range` of `target` (1 = cardinal adjacency). Returns true if already in range. */
@@ -282,19 +325,22 @@ export class Game {
     if (this.inRange(entity, target, range)) { entity.path = []; return true; }
     const r = target.rect ? target.rect() : { x0: target.x, y0: target.y, x1: target.x, y1: target.y };
     const goal = { ...r, mode: range <= 0 ? 'tile' : range === 1 ? 'adjacent' : 'range', range };
-    const { path } = findPath(this.world, entity.x, entity.y, goal, { maxNodes: 3000, radius: 40 });
+    const { path } = findPath(this.world, entity.x, entity.y, goal, { maxNodes: 3000, radius: 40, size: entity.size || 1 });
     entity.path = path;
     return false;
   }
 
-  /** Range test between an entity and a target footprint. range 0 = on it, 1 = cardinally adjacent, n = Chebyshev <= n. */
+  /**
+   * Range test between an entity and a target footprint. range 0 = on it, 1 = cardinally adjacent, n = Chebyshev <= n.
+   * Both footprints count (a 2x2 or 3x3 NPC is in melee range when any edge tile touches the target), matching
+   * combat_formulas.inAttackRange.
+   */
   inRange(entity, target, range = 1) {
     const r = target.rect ? target.rect() : { x0: target.x, y0: target.y, x1: target.x, y1: target.y };
-    const ex = entity.x, ey = entity.y;
-    const inside = ex >= r.x0 && ex <= r.x1 && ey >= r.y0 && ey <= r.y1;
-    if (range <= 0) return inside;
-    if (inside) return false;
-    const dx = Math.max(r.x0 - ex, 0, ex - r.x1), dy = Math.max(r.y0 - ey, 0, ey - r.y1);
+    const ex = entity.x, ey = entity.y, e = (entity.size || 1) - 1;
+    if (range <= 0) return ex >= r.x0 && ex <= r.x1 && ey >= r.y0 && ey <= r.y1;
+    const dx = Math.max(r.x0 - (ex + e), 0, ex - r.x1), dy = Math.max(r.y0 - (ey + e), 0, ey - r.y1);
+    if (dx === 0 && dy === 0) return false; // on / overlapping the target
     if (range === 1) return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
     return Math.max(dx, dy) <= range;
   }

@@ -162,6 +162,10 @@ export function init(game) {
     const p = e.player;
     if (p !== game.player || e.handled) return;
     e.handled = true;
+    // safe-death areas (minigames, registerArea({ safeDeath: {x, y} })): nothing is lost; the area's owner
+    // respawns the player on 'death:safe' {player, area, killer}
+    const safeArea = game.world.getArea(p.x, p.y);
+    if (safeArea?.safeDeath) { game.message('<col=c00000>You have been defeated!</col>'); ev.emit('death:safe', { player: p, area: safeArea, killer: e.killer }); return; }
     const x = p.x, y = p.y;
     const wild = game.world.getWildernessLevel(x, y) > 0;
     const killer = game.pvp?.killerOf(p, e.killer) || null;

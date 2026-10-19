@@ -12,8 +12,14 @@ import * as agility from './agility.js';
 import * as thieving from './thieving.js';
 import * as slayer from './slayer.js';
 import * as quests from './quests.js';
+// activities (minigames, riddle trails, pets, emotes)
+import * as minigames from './minigames.js';
+import * as clues from './clues.js';
+import * as pets from './pets.js';
+import * as emotes from './emotes.js';
 
 const SYSTEMS = { magic, prayer, combat, death, wilderness, gathering, production, agility, thieving, slayer, quests };
+Object.assign(SYSTEMS, { minigames, clues, pets, emotes });
 
 export function initSystems(game) {
   for (const [name, mod] of Object.entries(SYSTEMS)) {

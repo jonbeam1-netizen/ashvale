@@ -40,3 +40,4 @@
 import './npcs_town.js';
 import './npcs_monsters.js';
 import './npcs_spawns.js';
+import './npcs_east.js';      // eastern lands & coast: bankers, shopkeepers, townsfolk, ferry, desert heat, lore books

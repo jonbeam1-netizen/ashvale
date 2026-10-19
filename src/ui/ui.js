@@ -2,6 +2,7 @@
 
 import { Chatbox } from './chatbox.js';
 import { Minimap } from './minimap.js';
+import { WorldMap } from './worldmap.js';
 import { SidePanel } from './sidepanel.js';
 import { Interfaces } from './interfaces.js';
 import { ContextMenu } from './contextmenu.js';
@@ -22,6 +23,7 @@ export class UIManager {
     this.interfaces = new Interfaces(this);
     this.side = new SidePanel(this);
     this.minimap = new Minimap(this);
+    this.worldMap = new WorldMap(this);
     this.hoverEl = document.getElementById('hover-text');
     this.tooltipEl = document.getElementById('tooltip');
     this.xpEl = document.getElementById('xp-drops');

@@ -107,3 +107,5 @@ registerShop({
   stock: [S('cooked_meat', 20), S('stew', 10), S('restoration_potion_4', 3), S('might_potion_4', 2), S('antidote_4', 3), S('wyrmward_shield', 2), S('rift_sigil', 100), S('void_sigil', 30),
     S('duskite_scimitar', 2), S('duskite_battleaxe', 1), S('verdite_chainbody', 1), S('reavers_cloak', 1)],
 });
+
+import './shops_east.js';     // Durnhold, Ilvaren, Dustwatch, Gullhaven, Bogwick shops (+ their trade goods)

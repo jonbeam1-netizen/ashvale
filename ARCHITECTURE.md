@@ -58,7 +58,19 @@ registry warns on duplicates (later wins). Any module may call `registerSpawn` t
 
 Loading screen: an inline script in `index.html` counts module downloads (PerformanceObserver) into the
 progress bar; `main.js` then reports its phases via `window.ashvaleLoading(text, fraction)` (and
-`performance.mark('ashvale:<phase>')`). Whole boot is ~1 s after the ~125 module files arrive.
+`performance.mark('ashvale:<phase>')`). Whole boot is ~1 s after the ~130 module files arrive. A hidden tab
+(invite link opened in the background) boots without waiting for animation frames.
+
+**Loader, preloading & cache-busting (`index.html`, `version.json`, `tools/bump_build.py`).** The head's inline
+loader holds a generated block (`BUILD` id + `MODULES`, the static import graph from `src/main.js`). It writes
+the import map, the stylesheets and one `<link rel="modulepreload">` per module (+ three.js) so all files
+download in parallel, then injects `src/main.js`. On a deployed host every module URL is mapped to
+`<path>?v=BUILD` through the import map (CSS too), so GitHub Pages' ~10 min cache can never mix old and new
+modules; before starting, the loader fetches `version.json` uncached and, if it names another build than the
+(possibly cached) page, reloads once as `?v=<build>` (other query params such as `?join=` are kept). In-game,
+a newer `version.json` is announced in chat (checked every 10 min). On localhost / `file:` nothing is versioned
+(`?cachebust` forces the deploy path for testing). **Bump BUILD on deploy: `python tools/bump_build.py`**
+(re-run it after adding modules so they are preloaded and versioned).
 
 Systems registered in step 5 override engine defaults from step 3 (see Interactions precedence).
 
@@ -356,8 +368,16 @@ removed from its footprint; decoration itself keeps clear of everything. Each sc
 `canStep(x,y,dx,dy)` · `isWater(x,y)` · `heightAt(fx,fy)` (continuous) · `tileCenterHeight(x,y)` ·
 `getArea(x,y)` / `getAreaName(x,y)` · `getWildernessLevel(x,y)` (0 outside; `edgeY - y` inside) ·
 `isWilderness(x,y)` · `isMulti(x,y)` · `buildingAt(x,y)` · `objectsAt(x,y)` · `refreshObject(obj)`.
-Pathfinding: `findPath(world, sx, sy, goal, opts)` in `world/pathfinding.js` (A*, 8-dir, diagonal needs
+Pathfinding: `findPath(world, sx, sy, goal, opts)` in `world/pathfinding.js` (`opts.size` for N×N movers; A*, 8-dir, diagonal needs
 both orthogonals free; returns path to closest reachable tile if blocked).
+
+**Size-aware movement.** NPCs with `size` N > 1 occupy an N×N footprint anchored at their north-west tile
+(`npc.x, npc.y`). They only path, wander, chase and step where the whole footprint fits
+(`world.fits(x, y, size)`, `world.canStepSize(x, y, dx, dy, size)`; `findPath(..., { size })`, used by
+`game.pathTo` / `moveToward` / `wander`), and `game.inRange` measures between footprints like
+`combat_formulas.inAttackRange` (melee = a footprint edge cardinally touching the target, never overlapping).
+Idle wanderers don't step onto another NPC's footprint (per-tick occupancy grid, `game.npcOccupied(npc, x, y)`);
+chasing / returning / forced movement is never held up by it.
 
 ### Current layout (288×256)
 The original 192×192 vale is unchanged; the world grew **east** (x 192–287) and **south** (y 192–255).
@@ -451,6 +471,7 @@ game.forceWalk(entity, tiles, { anim, onDone })  // ignores collision, locks ent
 game.interact(player, target, option, extra?)    // walk to target then dispatch the handler (see §6)
 game.useItemOption(player, slot, option) / useItemOnItem(player, slotA, slotB) / castSpell(player, spellId)
 game.toggleRun(on?)
+player.tripRun                       // Ctrl+click: true/false overrides running for the current trip (null = off)
 ```
 ### Items & equipment
 ```js
@@ -614,6 +635,19 @@ game.ui.showTooltip(x, y, html) · hideTooltip() · clickCross(x, y, 'yellow'|'r
 game.ui.bankOpen (bool) · game.ui.shopOpen (shopId|null)
 ```
 Tabs (F-keys F1–F9): `combat skills quests inventory equipment prayer magic friends settings`.
+Hotkeys: Alt+R run, Alt+M world map, Esc closes windows/map, Space continues dialogue (hold to skip), 1–9
+dialogue options. Ctrl+click = run (walk if run is on) for one trip; Shift+click in the inventory drops
+(`settings.shiftDrop`, default on). The Settings tab has a **Controls & tips** window (`ui/help.js`) – keep it
+in sync when adding controls.
+
+**World map** (`ui/worldmap.js`, `game.ui.worldMap`): button under the minimap / Alt+M. Cached base images
+(the minimap image split into *Surface* and *Underground* – every `dungeon: true` area – layers, Wilderness
+tinted per 10 levels), area labels from `allAreas()`, icons derived once from the world: objects with a
+`Bank` option / `bank_booth`, NPCs with `shop`/`Trade`, NPCs whose `mapIcon.char` is `'?'` (quest start),
+`altar`/`Pray-at`/`Bind*`, `furnace`/`Smelt`, `anvil`/`Smith`, `range`, `Mine`, `fishing_spot`, `def.teleport`
+objects (surface↔underground = dungeon entrance, otherwise transport), `portal`, `agility` data (one icon per
+course) and `slayer_master` data. A click sets a marker (`player.store('worldmap').marker`) drawn as a flag on
+the minimap (rim arrow when far); it clears on arrival. `open() / close() / toggle() / setMarker(x, y)`.
 The Prayer tab emits `'ui:prayer' {id, player, handled}`; the special bar / spec orb emit
 `'ui:special' {handled}`; the Magic tab casts non-targeted spells via `game.castSpell` and enters "Cast"
 selection for spells with `targets`. Interfaces close when the player walks/interacts.
@@ -761,4 +795,60 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   then shortens the draw distance after ~5 s below 30 fps (Settings > Auto quality). Typical cost on a desktop GPU:
   2–3.5 ms per frame, ≤ 270 draw calls, ≤ 230k triangles in the busiest towns; a game tick with ~580 NPCs < 0.5 ms. Shadows from a sun that
   follows the player (toggle in Settings). Wilderness tints the sky/fog; `dungeon` areas go dark with a
-  player torch light.
+  player torch light. Auto quality first turns *High quality* off, then shadows, then draw distance.
+* **Day/night** (`render/daynight.js`): wall-clock driven (`DAY_MS` = 40 min, `worldDayT()`), so every peer shares
+  the time. `game.time = { t, phase: 'dawn'|'day'|'dusk'|'night', worldT, worldPhase, night (0..1), dayLength,
+  alwaysDay }` (`t`/`phase` = what is shown, i.e. forced to day by Settings > *Always day*; `world*` = the real
+  clock). Event `'time:phase' {phase, prev, t}`. Sun/moon direction + colour, sky dome (gradient, sun, moon, stars),
+  fog and hemisphere light follow the palette; caves ignore it. Debug: `game.renderer.dayNight.override = 0.0`.
+* **Lights** (`render/lights.js`): light-emitting scenery templates are listed in `LIGHT_TEMPLATES` (lamp, lantern
+  posts, torches, braziers, fires, forges, furnaces, candles, crystal lamps, moonwell, portals…) plus lava pools and
+  transient flashes (`lights.flash(x,y,z,color,…)`). A fixed pool of PointLights (8 HQ / 4) goes to the sources nearest
+  the camera; every source also gets an additive halo. PointLights created inside animated templates are stripped and
+  pooled (a changing light count would recompile every shader) – don't add lights to the scene yourself.
+  GeoBuilder primitives with flame/lamp-like colours (or `b.glowNext = 1` before a primitive) self-illuminate at night.
+  Building windows (on outer wall tiles) light up at dusk; ~60 % of houses get a chimney with smoke.
+* **Weather** (`render/weather.js`): `climateAt(world, x, y)` → `temperate forest swamp coast snow northwild mountain
+  ash embers desert cave`; `weatherFor(climate, now)` is deterministic per 5-minute wall-clock window (peers agree).
+  `game.weather = {climate, kind, intensity}`, event `'weather:change' {climate, kind, intensity, prev}` and
+  `'weather:lightning'` (storms). GPU particle fields around the camera (rain, snow, ash, embers, sand, fireflies at
+  night, butterflies/birds by day, cave dust), fog density/colour, wind (`GLOBAL.uWind`, drives foliage sway) and
+  wet ground. Settings > *Weather effects* turns it off.
+* **Materials** (`render/materials.js`): shared uniforms (`GLOBAL.uTime/uWind/uGlow/uWet/uRim/uWindowGlow`); trees and
+  low plants sway (`FOLIAGE_TREE`/`FOLIAGE_LOW`, chosen per template in scenery.js), characters use `CHAR_MATERIAL`
+  (rim light) and flash with `HIT_MATERIAL` on damage. Water has depth tint, fresnel sky, shore foam and glints.
+* **Effects** (`render/effects.js`): two pooled Points draw calls; spell projectiles get trails and element impacts
+  (element guessed from the colour: fire/water/earth/wind/holy/arcane), arrows fly as shafts; extra kinds `'impact'`,
+  `'prayer'`, `'special'`; prayer activation and special attacks are picked up from `'prayer:change'` /
+  `'special:change'`.
+* **High quality** (Settings, default on for desktop, off on phones): post pass (`render/post.js`: MSAA half-float
+  target, small two-level bloom, colour grading by time of day, vignette), 2048 shadow map, 8 pooled lights, full
+  particle counts, pixel ratio ≤ 1.5 (else ≤ 1.25 and a CSS vignette).
+
+---------------------------------------------------------------------------------------------------
+
+## 13. Activities: minigames, riddle trails, pets, emotes
+
+Files: `src/content/{minigames,clues,pets}.js` (data, map, items, NPCs) + `src/systems/{minigames,clues,pets,emotes}.js`.
+All monsters/followers here are spawned at run time per player (`respawn: false`) and never shared over the network.
+
+* **The Crucible** (wave survival) – walled pit west of Dustwatch, walls `(211–226, 141–154)`, gate `(219,154)`,
+  Warden Saska + token shop `(222,156)`. 18 waves (`CRUCIBLE_WAVES`), wave 18 = Ignarax, who swaps melee/ranged/magic
+  phase definitions every 5 attacks (announced). Area `crucible` is `multi` and has **`safeDeath: {x, y}`**:
+  `systems/death.js` then emits `'death:safe' {player, area, killer}` instead of the normal death (nothing lost) – any
+  area may use this flag. Rewards: `crucible_token` (shop `crucible_exchange`), `crucible_cape` on completion.
+  State `player.store('crucible')` = `{best, completions, tokens}`.
+* **Wardens' Rest** – five barrow mounds on SW Bramblemoor around the cairn `(201,130)`; dig (spade) on a mound →
+  crypt rooms in the dungeon band `(64–118, 225–229)`, `Search` the sarcophagus to wake its champion; one random
+  champion's tomb leads to the Hollow Tunnels `(272–286, 225–233)` and guards the chest. Four-piece sets
+  `<champion>_{helm,body,legs,weapon}` with set effects (`game.minigames.wornSet()`). State `player.store('wardens')`.
+* **Wayfinder's Riddles** – `riddle_scroll_{easy,medium,hard}` drop on kills (local, untradeable); steps: riddle /
+  coordinate (paces from Brackenford square) / map → spade `Dig`; emote in a rect; talk to an NPC; hard: sliding puzzle
+  box. Casket rewards: gilt metal sets, hats, capes, emote notation. `game.riddles.give(tier)` hands one out.
+  Spade `Dig` handlers return `false` when the dig is not theirs (fallback "nothing here" in minigames).
+* **Pets** – `pet_<id>` item + `follower_<id>` NPC (`state.petOf`), sources in `content/pets.js`
+  (`npc:death`, `gathering:log|ore|fish`, `'minigame:reward' {id}`); Petkeeper Odessa `(100,147)` reclaims lost pets.
+  Snapshot field `pet` shows other players' followers. `game.pets.award(id)`.
+* **Emotes** tab – `game.emotes.play(id)` plays the one-shot anim `emote_<id>` (mirrored by the net `fx` snapshot) and
+  emits `'emote' {player, id}`; poses are blended on top of the biped animator through a hook on the rig root's
+  `updateMatrixWorld` (no render edits). Locked emotes are learned from `emote_scroll_<id>` items.

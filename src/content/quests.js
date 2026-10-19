@@ -5,3 +5,5 @@
 
 import './quests_core.js';
 import './quests_more.js';
+import './quests_east.js';    // Forge-Heart of Durnhold, Moonwell's Lament, Stars over Bramblemoor, The Keeper's Light
+import './quests_east2.js';   // The Sun-Eyed Warden, The Brinecoil, Trial by Bog, The Ember Under the Mountain (epic)

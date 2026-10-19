@@ -93,7 +93,7 @@ export class Player extends Character {
     this.activePrayers = new Set();
     this.quests = {};           // questId -> stage (0 = not started)
     this.data = {};             // namespaced persistent data for systems: player.data[ns] = {...}
-    this.settings = { shadows: true, roofs: true, xpDrops: true, wildyWarning: true, showFps: false, drawDistance: 1, autoQuality: true };
+    this.settings = { shadows: true, roofs: true, xpDrops: true, wildyWarning: true, showFps: false, drawDistance: 1, autoQuality: true, shiftDrop: true };
     this.playTime = 0;          // ticks
     this.destination = null;    // {x,y} minimap flag
     this.following = null;
@@ -119,7 +119,7 @@ export class Player extends Character {
       appearance: this.appearance,
       equipment: this.equipment.ids(),
       x: this.x, y: this.y,
-      running: this.running,
+      running: this.tripRun ?? this.running, // tripRun: Ctrl+click run/walk for one trip
       hp: this.hp, maxHp: this.maxHp,
       combatLevel: this.combatLevel,
       anim: this.loopAnim || (this.anim ? this.anim.name : null),
