@@ -6,6 +6,10 @@ import { buildSceneryGeometry, sceneryKey, getSceneryTemplate, VC_MATERIAL, GeoB
 import { getItemIconTexture } from '../ui/icons.js';
 
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+// Scenery is instanced per model variant *per chunk* so frustum / distance culling can skip far
+// chunks (a single world-wide InstancedMesh is never culled). Free slots park at the chunk centre
+// with zero scale so they don't inflate the chunk's bounding sphere.
+const SCENERY_CHUNK = 32;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _up = new THREE.Vector3(0, 1, 0);
 
 export class SceneryRenderer {
@@ -23,12 +27,14 @@ export class SceneryRenderer {
     this.roofs = [];
 
     // initial bulk build: count per variant so meshes start with the right capacity
-    const counts = new Map();
+    const counts = new Map(), first = new Map();
     for (const o of game.objects.values()) {
       const k = this.keyOf(o);
       counts.set(k, (counts.get(k) || 0) + 1);
+      if (!first.has(k)) first.set(k, o);
     }
-    for (const [k, n] of counts) this.ensureVariant(k, this.modelInfo([...game.objects.values()].find((o) => this.keyOf(o) === k)), n + 16);
+    for (const [k, n] of counts) this.ensureVariant(k, this.modelInfo(first.get(k)), n + 4, first.get(k));
+    this._cullAcc = 1;
     for (const o of game.objects.values()) this.addObject(o);
     for (const g of game.groundItems.values()) this.addGround(g);
     this.buildRoofs();
@@ -46,13 +52,16 @@ export class SceneryRenderer {
     const [w, h] = o.sizeOverride || o.def.size || [1, 1];
     return { model: o.def.model, w, h };
   }
-  keyOf(o) { const { model, w, h } = this.modelInfo(o); return sceneryKey(model, w, h); }
+  chunkOf(o) { return `${Math.floor(o.x / SCENERY_CHUNK)},${Math.floor(o.y / SCENERY_CHUNK)}`; }
+  keyOf(o) { const { model, w, h } = this.modelInfo(o); return sceneryKey(model, w, h) + '@' + this.chunkOf(o); }
 
-  ensureVariant(key, info, cap = 32) {
+  ensureVariant(key, info, cap = 32, o = null) {
     let v = this.variants.get(key);
     if (v) return v;
     const geo = buildSceneryGeometry(info.model, info.w, info.h);
-    v = { key, geo, mesh: null, cap: 0, objs: [], free: [] };
+    const ccx = o ? (Math.floor(o.x / SCENERY_CHUNK) + 0.5) * SCENERY_CHUNK : 0, ccy = o ? (Math.floor(o.y / SCENERY_CHUNK) + 0.5) * SCENERY_CHUNK : 0;
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0).setPosition(ccx, o ? this.world.heightAt(ccx, ccy) : 0, ccy);
+    v = { key, geo, mesh: null, cap: 0, objs: [], free: [], zero, cx: ccx, cy: ccy };
     this.variants.set(key, v);
     this.growVariant(v, cap);
     return v;
@@ -63,7 +72,7 @@ export class SceneryRenderer {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    for (let i = 0; i < cap; i++) mesh.setMatrixAt(i, i < v.cap && v.mesh ? (v.mesh.getMatrixAt(i, _m), _m) : ZERO);
+    for (let i = 0; i < cap; i++) mesh.setMatrixAt(i, i < v.cap && v.mesh ? (v.mesh.getMatrixAt(i, _m), _m) : v.zero);
     mesh.userData.variant = v;
     if (v.mesh) { this.group.remove(v.mesh); v.mesh.dispose(); }
     for (let i = v.cap; i < cap; i++) v.free.push(i);
@@ -102,9 +111,9 @@ export class SceneryRenderer {
       this.slots.set(o.uid, { dynamic: obj3d });
       return;
     }
-    const key = sceneryKey(info.model, info.w, info.h);
-    const v = this.ensureVariant(key, info);
-    if (!v.free.length) this.growVariant(v, v.cap * 2);
+    const key = this.keyOf(o);
+    const v = this.ensureVariant(key, info, 8, o);
+    if (!v.free.length) this.growVariant(v, Math.max(8, v.cap * 2));
     const idx = v.free.pop();
     v.objs[idx] = o;
     v.mesh.setMatrixAt(idx, this.objectMatrix(o));
@@ -119,7 +128,7 @@ export class SceneryRenderer {
     this.slots.delete(o.uid);
     if (s.dynamic) { this.group.remove(s.dynamic); this.dynamic.delete(s.dynamic); return; }
     if (s.variant) {
-      s.variant.mesh.setMatrixAt(s.index, ZERO);
+      s.variant.mesh.setMatrixAt(s.index, s.variant.zero);
       s.variant.mesh.instanceMatrix.needsUpdate = true;
       s.variant.mesh.boundingSphere = null;
       s.variant.objs[s.index] = null;
@@ -206,8 +215,22 @@ export class SceneryRenderer {
     this.groundSprites.delete(g.uid);
   }
 
+  /** Hide whole chunk meshes beyond the fog (frustum culling alone keeps far chunks in view). */
+  cullChunks() {
+    const p = this.game.player;
+    const far = (this.rm.scene.fog?.far ?? 95) + SCENERY_CHUNK * 0.75;
+    for (const v of this.variants.values()) {
+      if (!v.mesh) continue;
+      v.mesh.visible = Math.abs(v.cx - p.x) < far && Math.abs(v.cy - p.y) < far;
+    }
+    for (const d of this.dynamic) {
+      d.visible = Math.abs(d.position.x - p.x) < far && Math.abs(d.position.z - p.y) < far;
+    }
+  }
+
   update(time) {
-    for (const d of this.dynamic) d.userData.update?.(time);
+    if (++this._cullAcc > 15) { this._cullAcc = 0; this.cullChunks(); }
+    for (const d of this.dynamic) if (d.visible) d.userData.update?.(time);
     for (const s of this.groundSprites.values()) s.visible = this.game.canSeeGroundItem(s.userData.entity);
     this.updateRoofs();
   }

@@ -1,131 +1,42 @@
-// NPC definitions. OWNER: agent D. (Skill/quest-specific NPCs may live in that system's content file.)
-// model.template: human | goblin | imp | skeleton | zombie | giant | demon | golem | cow | wolf | rat |
-//                 dragon | spider | chicken | bat  (see render/models.js)
+// =================================================================================================
+// ROSTER (agent D2 keeps this current; D1 uses it to populate new regions)   id — combat level — habitat
+// critters:   chicken 1 farms · cow 2 farms · giant_rat 3 swamp/sewers · marsh_toad 4 Murkfen · saltmarsh_crab 9 coast
+//             wild_boar 10 Thornwood/farms · timber_wolf 15 Thornwood · dune_scorpion 15 coast · thornwood_bear 23 Thornwood
+// goblin-kin: goblin 2 · goblin_scout 6 (ranged) · goblin_brute 13 · goblin_shaman 13 (magic) — goblin camp E of Brackenford
+// humanoids:  villager 2 · farmer 7 · highway_bandit 19 roads · town_guard 22 towns · ashcult_acolyte 16 · ashcult_zealot 37
+//             hedge_wizard 22 (magic) · saltmarsh_corsair 27 coast · fen_stalker 47 Murkfen · highmarch_knight 49 Highmarch
+//             wasteland_reaver 36 Wilderness · stormcaller 51 (magic) Wilderness · marsh_ogre 56 Murkfen · crag_troll 73 mountains
+// undead:     zombie 14 · wailing_shade 19 · skeleton 21 · drowned_one 30 Murkfen · bone_archer 28 · skeleton_warden 64 Calder Ruins
+//             grave_wraith 63 Wilderness graveyard · ash_revenant 96 Wilderness
+// beasts:     giant_spider 6 Thornwood · cave_bat 5 Gloomhollow · dread_wolf 25 Wilderness · ironshell_crab 37 coast
+//             pitch_scorpion 38 Gloomhollow · rimefang_wolf 44 Frostfang · gloom_widow 57 Gloomhollow
+// giants:     highland_giant 28 · mosshide_giant 43 Thornwood/Murkfen · rime_giant 56 Frostfang · cinder_giant 87 Ashen Wastes
+// golems/el.: quarry_golem 34 Greystone · loam_elemental 40 Greystone · tide_elemental 47 Mirrowmere · gale_elemental 53 Frostfang
+//             ember_elemental 60 Ashen Wastes · ironbound_golem 72 Gloomhollow · shardstone_golem 109 Gloomhollow
+// demons:     imp 5 · ashfiend 56 Wilderness · gloom_fiend 84 Gloomhollow · pyre_fiend 121 Wilderness
+// dragons:    drakeling 49 Gloomhollow · fen_drake 65 Murkfen · moss_dragon 79 Wilderness · ashen_wyrm 79 Wilderness · azure_dragon 111 Gloomhollow
+//             frost_wyrm 143 Frostfang · crimson_dragon 154 Wilderness (lava, 144,23) · obsidian_dragon 225 deep Wilderness
+// slayer:     gloom_crawler 22 (sl 10) · shalestone_slug 30 (sl 20) · stonegaze_fowl 37 (sl 25) · keening_hag 43 (sl 30)
+//             thirst_bat 54 (sl 35) · glarehorn_lizard 66 (sl 45) · ash_devil 97 (sl 60) · rot_specter 91 (sl 65)
+//             stone_grotesque 117 (sl 75) · hollow_reaver 123 (sl 80) · void_stalker 124 (sl 85) · umbral_beast 185 (sl 90)
+// bosses:     grubnak_warlord 48 goblin camp · corsair_captain 78 coast · graven_king 95 Greystone · bog_matriarch 120 Murkfen
+//             mother_skitterlace 140 Gloomhollow · calder_lich 190 Calder Ruins · cinder_colossus 210 Ashen Wastes
+//             frostmaw 320 Frostfang · varrath_gloom_tyrant 300 Gloomhollow (deepest)
+// townsfolk:  banker · banker_female · town_guard 22 · farmer 7 · villager 2 · old_fennick · bard_lyle · child_pip · brother_aldous
+//             drunk_harlan · lady_corvina · scholar_bede · dockhand_moira · ranger_kestrel · town_guide · slayer_master_hollis
+// shops:      shopkeeper (general) · bram_bladesmith "Garrick" (swords) · hilde_armourer · baker_wenna (food) · fisher_tobin
+//             crafter_ilsa · mage_orrin (sigils/staves) · fletcher_rowan (archery) · herbalist_maeve · arms_dealer · highmarch_smith
+//             highmarch_mage · highmarch_grocer · haverly_supplier (farming) · bandit_fence (Wilderness outlaw camp, 41,46)
+// =================================================================================================
+// NPC definitions. OWNER: agent D (D2). (Skill/quest-specific NPCs may live in that system's content file.)
+// model.template: engine  human goblin imp skeleton zombie giant demon golem cow wolf rat dragon spider chicken bat
+//                 content troll ogre lizardfolk elemental ghost magma_golem bear boar toad lizard slug hound
+//                         glow_dragon crab scorpion   (content/visuals.js)
+//
+//   npcs_town.js      bankers, shopkeepers, townsfolk + dialogues
+//   npcs_monsters.js  monsters, slayer monsters, bosses
+//   npcs_spawns.js    spawn placement in the existing regions (D1 places spawns in new regions)
 
-import { registerNpc, registerDialogue } from '../core/registry.js';
-
-// ---- townsfolk ---------------------------------------------------------------------------------
-registerNpc({
-  id: 'banker', name: 'Banker', examine: 'Good with money.', options: ['Talk-to', 'Bank'], dialogue: 'banker', wanderRadius: 0,
-  model: { template: 'human', colors: { top: '#2a3a6a', legs: '#2a2a3a', hair: '#3a2a1a' }, equipment: {} },
-  mapIcon: { char: '$', color: '#e8c040' },
-});
-registerNpc({
-  id: 'shopkeeper', name: 'Shopkeeper', examine: 'Maybe I can buy something from them.', options: ['Talk-to', 'Trade'], shop: 'brackenford_general', dialogue: 'shopkeeper', wanderRadius: 1,
-  model: { template: 'human', colors: { top: '#6a5a3a', legs: '#4a3a2a', hair: '#8a5a2a' }, equipment: {} },
-  mapIcon: { char: 'G', color: '#e8c040' },
-});
-registerNpc({
-  id: 'arms_dealer', name: 'Arms dealer', examine: 'Sells weapons and armour.', options: ['Talk-to', 'Trade'], shop: 'highmarch_arms', dialogue: 'shopkeeper', wanderRadius: 1,
-  model: { template: 'human', colors: { top: '#5a5a62', legs: '#3a3a3a', hair: '#2a1a10' }, extras: { beard: true }, equipment: { body: 'bronze_platebody' } },
-  mapIcon: { char: 'W', color: '#c0c0c8' },
-});
-registerNpc({
-  id: 'town_guide', name: 'Mira', examine: 'The Brackenford town guide.', options: ['Talk-to'], dialogue: 'town_guide', wanderRadius: 2,
-  model: { template: 'human', female: true, hairStyle: 'long', colors: { top: '#3a6a5a', legs: '#5a4a3a', hair: '#c88a3a' }, equipment: {} },
-  mapIcon: { char: '?', color: '#60c0ff' },
-});
-registerNpc({
-  id: 'villager', name: 'Villager', examine: 'One of the local folk.', combatLevel: 2, options: ['Talk-to', 'Attack', 'Pickpocket'], dialogue: 'villager',
-  stats: { attack: 1, strength: 1, defence: 1, hitpoints: 7 }, maxHit: 1, dropTable: 'villager', respawnTicks: 30,
-  model: { template: 'human', colors: { top: '#6a5a4a', legs: '#4a4a5a' }, equipment: {} },
-});
-
-// ---- creatures ---------------------------------------------------------------------------------
-registerNpc({
-  id: 'chicken', name: 'Chicken', examine: 'Yep, definitely a chicken.', combatLevel: 1, options: ['Attack'],
-  stats: { attack: 1, strength: 1, defence: 1, hitpoints: 3 }, maxHit: 1, attackSpeed: 4, dropTable: 'chicken', respawnTicks: 25,
-  model: { template: 'chicken' },
-});
-registerNpc({
-  id: 'cow', name: 'Cow', examine: 'Converts grass to beef.', combatLevel: 2, options: ['Attack'],
-  stats: { attack: 1, strength: 1, defence: 1, hitpoints: 8 }, maxHit: 1, attackSpeed: 4, dropTable: 'cow', respawnTicks: 30,
-  model: { template: 'cow' },
-});
-registerNpc({
-  id: 'goblin', name: 'Goblin', examine: 'An ugly green creature.', combatLevel: 2, options: ['Attack'],
-  stats: { attack: 1, strength: 1, defence: 1, hitpoints: 5 }, maxHit: 1, attackSpeed: 4, attackStyle: 'crush', dropTable: 'goblin', respawnTicks: 30,
-  model: { template: 'goblin', equipment: { weapon: 'bronze_dagger' } },
-});
-registerNpc({
-  id: 'giant_rat', name: 'Giant rat', examine: 'Overgrown vermin.', combatLevel: 3, options: ['Attack'], aggressive: true, aggroRange: 2,
-  stats: { attack: 2, strength: 3, defence: 2, hitpoints: 5 }, maxHit: 2, attackStyle: 'stab', dropTable: 'giant_rat', respawnTicks: 25,
-  model: { template: 'rat', scale: 1.3 },
-});
-registerNpc({
-  id: 'giant_spider', name: 'Thornwood spider', examine: 'A hairy, venomous arachnid.', combatLevel: 5, options: ['Attack'], aggressive: true, aggroRange: 3,
-  stats: { attack: 5, strength: 4, defence: 3, hitpoints: 12 }, maxHit: 2, attackStyle: 'stab', dropTable: 'none', respawnTicks: 30,
-  model: { template: 'spider', scale: 1.4, colors: { body: '#3a2a20', abdomen: '#4a3020' }, marking: '#c08020' },
-});
-registerNpc({
-  id: 'imp', name: 'Imp', examine: 'A cheeky little demon.', combatLevel: 7, options: ['Attack'],
-  stats: { attack: 4, strength: 4, defence: 4, hitpoints: 8 }, maxHit: 1, dropTable: 'imp', respawnTicks: 30, wanderRadius: 6,
-  model: { template: 'imp' },
-});
-registerNpc({
-  id: 'quarry_golem', name: 'Quarry golem', examine: 'Rock given an unfortunate will of its own.', combatLevel: 28, options: ['Attack'],
-  stats: { attack: 25, strength: 28, defence: 30, hitpoints: 40 }, maxHit: 5, attackSpeed: 6, attackStyle: 'crush', dropTable: 'golem', respawnTicks: 60,
-  model: { template: 'golem' },
-});
-registerNpc({
-  id: 'skeleton', name: 'Skeleton', examine: 'Could do with gaining a few pounds.', combatLevel: 22, options: ['Attack'], aggressive: true,
-  stats: { attack: 17, strength: 17, defence: 17, hitpoints: 24 }, maxHit: 3, attackStyle: 'slash', dropTable: 'skeleton', respawnTicks: 40,
-  model: { template: 'skeleton', equipment: { weapon: 'iron_scimitar' } },
-});
-registerNpc({
-  id: 'zombie', name: 'Zombie', examine: 'The walking dead.', combatLevel: 13, options: ['Attack'], aggressive: true,
-  stats: { attack: 10, strength: 10, defence: 10, hitpoints: 20 }, maxHit: 2, dropTable: 'skeleton', respawnTicks: 40,
-  model: { template: 'zombie' },
-});
-registerNpc({
-  id: 'cave_bat', name: 'Cave bat', examine: 'It flaps about in the dark.', combatLevel: 6, options: ['Attack'], aggressive: true,
-  stats: { attack: 5, strength: 4, defence: 4, hitpoints: 8 }, maxHit: 1, dropTable: 'none', respawnTicks: 25, wanderRadius: 5,
-  model: { template: 'bat' },
-});
-registerNpc({
-  id: 'dread_wolf', name: 'Dread wolf', examine: 'A snarling wilderness predator.', combatLevel: 25, options: ['Attack'], aggressive: true, aggroRange: 4,
-  stats: { attack: 22, strength: 20, defence: 18, hitpoints: 30 }, maxHit: 4, attackSpeed: 4, attackStyle: 'stab', dropTable: 'wolf', respawnTicks: 40,
-  model: { template: 'wolf', scale: 1.25, colors: { body: '#4a4642', belly: '#8a8680' } },
-});
-registerNpc({
-  id: 'highland_giant', name: 'Highland giant', examine: 'A very large, very hairy brute.', combatLevel: 28, options: ['Attack'], aggressive: true,
-  stats: { attack: 18, strength: 22, defence: 26, hitpoints: 35 }, maxHit: 4, attackSpeed: 6, attackStyle: 'crush', dropTable: 'giant', respawnTicks: 50, size: 2,
-  model: { template: 'giant', equipment: { weapon: { shape: 'mace', color: '#6a4a2a' } } },
-});
-registerNpc({
-  id: 'gloom_fiend', name: 'Gloom fiend', examine: 'A demon of the deep dark.', combatLevel: 82, options: ['Attack'], aggressive: true,
-  stats: { attack: 70, strength: 72, defence: 65, hitpoints: 87 }, maxHit: 10, attackSpeed: 4, attackStyle: 'slash', dropTable: 'demon', respawnTicks: 80, size: 2, wanderRadius: 3,
-  model: { template: 'demon' },
-});
-registerNpc({
-  id: 'ashen_wyrm', name: 'Ashen wyrm', examine: 'A dragon wreathed in cinders. Best avoided.', combatLevel: 79, options: ['Attack'], aggressive: true,
-  stats: { attack: 68, strength: 68, defence: 68, hitpoints: 75 }, maxHit: 8, attackSpeed: 4, attackStyle: 'slash', dropTable: 'dragon', respawnTicks: 100, size: 3, wanderRadius: 4,
-  model: { template: 'dragon', colors: { body: '#4a3a3a', belly: '#c88a4a', eyes: '#ff6020' }, wings: '#3a2020' },
-});
-registerNpc({
-  id: 'slayer_master_hollis', name: 'Warden Hollis', examine: 'A grizzled hunter of dangerous beasts.', options: ['Talk-to'], dialogue: 'slayer_master', wanderRadius: 1,
-  model: { template: 'human', colors: { top: '#3a4a2a', legs: '#2a2a20', hair: '#5a5a5a' }, extras: { beard: true }, equipment: { weapon: 'iron_scimitar', cape: { shape: 'cape', color: '#2a3a20' } } },
-  mapIcon: { char: 'S', color: '#c04040' },
-});
-
-// ---- generic dialogues (quest/skill NPC dialogues live with their system's content) -------------
-registerDialogue('banker', [
-  { npc: 'Good day, how may I help you?' },
-  { options: [
-    { text: "I'd like to access my bank account, please.", action: ({ game }) => { game.ui.openBank(); return false; } },
-    { text: 'What is this place?', goto: 'what' },
-    { text: 'Nothing, thanks.', end: true },
-  ] },
-  { label: 'what', npc: 'This is a branch of the Bank of Ashvale. Your belongings are safe with us in every town.' },
-  { player: 'Good to know.', end: true },
-]);
-registerDialogue('shopkeeper', [
-  { npc: 'Can I help you at all?' },
-  { options: [
-    { text: 'Yes please. What are you selling?', action: ({ game, npc }) => { game.ui.openShop(npc.def.shop); return false; } },
-    { text: "No thanks, I'm just looking.", end: true },
-  ] },
-]);
-registerDialogue('villager', (ctx) => [
-  { npc: ['Lovely weather today.', 'Have you seen the wilderness ditch? Stay south of it if you value your hide.', 'The forge by the square is always warm.'][ctx.npc.uid % 3] },
-]);
+import './npcs_town.js';
+import './npcs_monsters.js';
+import './npcs_spawns.js';

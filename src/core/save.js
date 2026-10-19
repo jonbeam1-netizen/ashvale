@@ -4,7 +4,17 @@
 
 import { SAVE_VERSION, MAX_RUN_ENERGY } from './constants.js';
 
-export const SAVE_KEY = 'ashvale.save';
+/** `?profile=<name>` selects a separate save slot (lets several tabs test without clobbering each other). */
+function profileSuffix() {
+  try {
+    const p = new URLSearchParams(location.search).get('profile');
+    const clean = p ? p.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : '';
+    return clean ? '.' + clean : '';
+  } catch { return ''; }
+}
+
+export const SAVE_PROFILE = profileSuffix().slice(1);
+export const SAVE_KEY = 'ashvale.save' + profileSuffix();
 
 /** Upgrade older save objects to the current schema. Add a case per version bump. */
 function migrate(data) {

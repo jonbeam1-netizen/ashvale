@@ -480,11 +480,11 @@ export class Game {
     if (target === 'shield' && eq.weapon()?.twoHanded) toUnequip.push('weapon');
     // need space for everything removed beyond the slot freed by the equipped item
     if (toUnequip.length - 1 > player.inventory.freeSlots()) { this.message("You don't have enough free inventory space to do that."); return false; }
-    player.inventory.removeAt(slot);
-    if (cur && def.stackable && cur.id === it.id) eq.set(target, { id: it.id, qty: cur.qty + it.qty });
+    const taken = player.inventory.removeAt(slot) || { id: it.id, qty: it.qty }; // removeAt zeroes `it.qty`
+    if (cur && def.stackable && cur.id === it.id) eq.set(target, { id: it.id, qty: cur.qty + taken.qty });
     else {
       const removed = toUnequip.map((s) => { const o = eq.get(s); eq.slots[s] = null; return o; });
-      eq.set(target, it);
+      eq.set(target, taken);
       removed.forEach((o, k) => { if (k === 0 && !player.inventory.get(slot)) player.inventory.set(slot, o); else player.inventory.add(o.id, o.qty); });
     }
     const wt = registry.getWeaponType(eq.weaponType());

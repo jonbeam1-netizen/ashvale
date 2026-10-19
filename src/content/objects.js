@@ -4,6 +4,9 @@
 // model.template: see render/models.js (wall, fence, door, furnace, anvil, range, bank_booth, altar, ...)
 
 import { registerObject } from '../core/registry.js';
+import './scenery_models.js';   // decorative templates (dec_*)
+import './scenery_defs.js';     // decorative object definitions
+import './world_flavor.js';     // tiny flavour handlers (Search bookshelves, Ring bells...)
 
 // ---- structure ----------------------------------------------------------------------------------
 registerObject({ id: 'wall_stone', name: 'Wall', examine: 'A sturdy stone wall.', model: { template: 'wall', variant: 'stone' } });

@@ -84,6 +84,10 @@ export class CharacterView {
     const world = this.rm.game.world;
     let y = world.heightAt(x, z);
     if (world.isWater(Math.floor(x), Math.floor(z))) y = Math.max(y, world.waterLevel - 0.2);
+    // optional vertical offset (agility rooftops/treetops): entity.elevation or remote extra.elevation
+    const elev = e.elevation ?? e.extra?.elevation ?? 0;
+    this.elev = (this.elev ?? elev) + (elev - (this.elev ?? elev)) * Math.min(1, dt * 8);
+    y += this.elev;
     this.pos.set(x, y, z);
     this.group.position.copy(this.pos);
 

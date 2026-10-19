@@ -1,46 +1,80 @@
 // World layout. OWNER: agent D.
-// Coordinates are tiles: x east, y SOUTH (y=0 is the far north). World is 192 x 192.
+// Coordinates are tiles: x east, y SOUTH (y=0 is the far north). World is 288 x 256.
 // Order matters: paint ops are applied top to bottom, then building floors, then spawn rules.
 // See ARCHITECTURE.md "Map data" for every op / rule field.
 //
-//   y 0-11    Frostfang Peaks (Wilderness, snow)
-//   y 12-47   Ashen Wastes (Wilderness)          - Calder Ruins at (96,28), lava pools
-//   y 48      Wilderness Ditch
-//   south     Brackenford (start town, 96,140) | Thornwood forest (west) | Greystone Quarry (NW)
-//             Silverrun river + Mirrowmere lake | Highmarch (NE walled town) | Haverly Farms (SE)
-//             Murkfen swamp (S) | Saltmarsh coast (far S) | Gloomhollow Depths dungeon (SW corner)
+//   y 0-11    Frostfang Peaks (Wilderness, snow)                    x 0-287
+//   y 12-47   Ashen Wastes (Wilderness) - Calder Ruins (96,28), Ossuary Flats, Cinder Pits, Wrenhollow,
+//             Blackbriar Wood (x 192-240), Cinderfall (x 241-287), Cinder Depths cave (NE pocket)
+//   y 48      Wilderness Ditch (full width)
+//   x 0-191   the original vale: Brackenford, Thornwood, Greystone, Silverrun, Mirrowmere, Highmarch,
+//             Haverly Farms, Murkfen, Saltmarsh Coast (+ Bogwick, Gullhaven, Morrow's Rest)
+//   x 183-240 Greyspine Mountains (Durnhold) · x 241-287 Faelwood (Ilvaren) · y 112-134 Bramblemoor
+//   x 192-287, y 134-200  Sunscar Badlands (Dustwatch)
+//   y 184-215 the Southern Sea (islands) · y 216-223 sea cliffs · y 224-255 sealed dungeon band
+//
+// The detailed regions live in content/map_regions/*.js and are called below in a fixed order.
 
 import { setMapConfig, registerPaint as paint, registerArea as area, registerSpawn as spawn } from '../core/registry.js';
+import { addTerrainType } from '../world/terrain.js';
+import * as wild from './map_regions/wilderness.js';
+import * as vale from './map_regions/vale.js';
+import * as coast from './map_regions/coast.js';
+import * as east from './map_regions/east.js';
+import * as dungeons from './map_regions/dungeons.js';
+
+export const WORLD_W = 288, WORLD_H = 256;
 
 setMapConfig({
-  width: 192, height: 192, seed: 1337, baseTerrain: 'grass', waterLevel: 0, hillAmplitude: 2.2,
+  width: WORLD_W, height: WORLD_H, seed: 1337, baseTerrain: 'grass', waterLevel: 0, hillAmplitude: 2.2,
   spawn: { x: 96, y: 141 }, respawn: { x: 96, y: 141 }, wildernessEdgeY: 48,
 });
 
+// ---- extra terrain types (append-only) --------------------------------------------------------------
+addTerrainType({ id: 'heath', color: '#77704a', var: 0.12, natural: true });
+addTerrainType({ id: 'red_sand', color: '#c47c4c', var: 0.07, natural: true, minimap: '#c8845a' });
+addTerrainType({ id: 'cracked_earth', color: '#a3825e', var: 0.1, natural: true });
+addTerrainType({ id: 'redrock', color: '#93533a', var: 0.1, walkable: false, natural: true, minimap: '#7a4430' });
+addTerrainType({ id: 'ice', color: '#bfdceb', var: 0.04, natural: true, minimap: '#cfe6f2' });
+addTerrainType({ id: 'glade_grass', color: '#4e9a5c', var: 0.1, natural: true });
+addTerrainType({ id: 'moss', color: '#4a6e34', var: 0.1, natural: true });
+addTerrainType({ id: 'gravel', color: '#8e877a', var: 0.08 });
+addTerrainType({ id: 'obsidian', color: '#2c2630', var: 0.12, natural: true, minimap: '#2a2430' });
+addTerrainType({ id: 'mud', color: '#5a4a32', var: 0.08, natural: true });
+addTerrainType({ id: 'crypt_floor', color: '#5e5a56', var: 0.05 });
+addTerrainType({ id: 'sandstone_floor', color: '#c8b088', var: 0.05 });
+addTerrainType({ id: 'sewer_floor', color: '#5c5a50', var: 0.06 });
+addTerrainType({ id: 'basalt', color: '#36302e', var: 0.1, walkable: false, natural: true, minimap: '#262222' });
+addTerrainType({ id: 'bone_ground', color: '#9a8e78', var: 0.1, natural: true });
+addTerrainType({ id: 'wet_rock', color: '#6e6a64', var: 0.08 });
+addTerrainType({ id: 'scorched', color: '#3e342c', var: 0.12, natural: true });
+addTerrainType({ id: 'dark_stone', color: '#4a4644', var: 0.08 });
+
 // =================================================================================================
-// Terrain painting
+// Base terrain painting (the original 192x192 layout, widened to the new size)
 // =================================================================================================
 // --- Wilderness --------------------------------------------------------------------------------------
-paint({ shape: 'rect', x0: 0, y0: 0, x1: 191, y1: 47, terrain: 'wild_grass', noise: { amp: 0.7, scale: 9 } });
+paint({ shape: 'rect', x0: 0, y0: 0, x1: WORLD_W - 1, y1: 47, terrain: 'wild_grass', noise: { amp: 0.7, scale: 9 } });
 for (const [cx, cy, r] of [[30, 30, 7], [70, 18, 6], [120, 40, 6], [165, 22, 8], [140, 32, 5], [52, 26, 7], [150, 30, 7]]) {
   paint({ shape: 'circle', cx, cy, r, terrain: 'ash', jitter: 2 });
 }
-paint({ shape: 'rect', x0: 0, y0: 0, x1: 191, y1: 11, terrain: 'snow', jitter: 2.5, raise: 1.6, noise: { amp: 1.4, scale: 6 } });
+paint({ shape: 'rect', x0: 0, y0: 0, x1: WORLD_W - 1, y1: 11, terrain: 'snow', jitter: 2.5, raise: 1.6, noise: { amp: 1.4, scale: 6 } });
 paint({ shape: 'circle', cx: 52, cy: 26, r: 3.5, terrain: 'lava', jitter: 1 });
 paint({ shape: 'circle', cx: 150, cy: 30, r: 4, terrain: 'lava', jitter: 1 });
 paint({ shape: 'circle', cx: 96, cy: 28, r: 8, terrain: 'stone', jitter: 1.5, height: 1.2, falloff: 3 });
 paint({ shape: 'line', points: [[96, 47], [96, 36]], width: 2, terrain: 'dirt', noScatter: true });
+wild.paintTerrain();
 // ditch band
-paint({ shape: 'rect', x0: 0, y0: 46, x1: 191, y1: 50, height: 1.0 });
-paint({ shape: 'rect', x0: 0, y0: 48, x1: 191, y1: 48, terrain: 'ditch', height: 0.2, noScatter: true });
+paint({ shape: 'rect', x0: 0, y0: 46, x1: WORLD_W - 1, y1: 50, height: 1.0 });
+paint({ shape: 'rect', x0: 0, y0: 48, x1: WORLD_W - 1, y1: 48, terrain: 'ditch', height: 0.2, noScatter: true });
 
-// --- East mountains --------------------------------------------------------------------------------
+// --- East mountains (Craghorn Ridge between the vale and the eastern lands) ---------------------------
 paint({ shape: 'rect', x0: 183, y0: 46, x1: 191, y1: 178, terrain: 'mountain', jitter: 2.5, raise: 5, falloff: 3, noise: { amp: 1.5, scale: 4 } });
 paint({ shape: 'rect', x0: 187, y0: 46, x1: 191, y1: 178, terrain: 'snow', jitter: 1.5, blocked: true, only: ['mountain'] });
 
-// --- Coast ----------------------------------------------------------------------------------------------
-paint({ shape: 'rect', x0: 45, y0: 178, x1: 191, y1: 191, terrain: 'sand', jitter: 1.5, height: 0.35, falloff: 3 });
-paint({ shape: 'rect', x0: 45, y0: 184, x1: 191, y1: 191, terrain: 'water', jitter: 1.5 });
+// --- Coast & southern sea ----------------------------------------------------------------------------
+paint({ shape: 'rect', x0: 45, y0: 178, x1: WORLD_W - 1, y1: 191, terrain: 'sand', jitter: 1.5, height: 0.35, falloff: 3 });
+paint({ shape: 'rect', x0: 45, y0: 184, x1: WORLD_W - 1, y1: 217, terrain: 'water', jitter: 1.5 });
 
 // --- Forest, swamp, quarry ----------------------------------------------------------------------------
 paint({ shape: 'rect', x0: 46, y0: 104, x1: 76, y1: 172, terrain: 'dark_grass', jitter: 3 });
@@ -88,14 +122,20 @@ road([[96, 156], [94, 166], [96, 178]]);                                        
 paint({ shape: 'rect', x0: 120, y0: 139, x1: 132, y1: 141, terrain: 'wood_floor', height: 0.55, noScatter: true });
 paint({ shape: 'rect', x0: 118, y0: 91, x1: 132, y1: 93, terrain: 'wood_floor', height: 0.55, noScatter: true });
 
+// --- Detailed regions (terrain) ----------------------------------------------------------------------------------
+vale.paintTerrain();
+coast.paintTerrain();
+east.paintTerrain();
+dungeons.paintTerrain();
+
 // =================================================================================================
 // Areas (names shown on entry; `safe` areas never count as Wilderness; `dungeon` darkens the sky)
 // =================================================================================================
-area({ id: 'vale', name: 'Ashvale', x0: 0, y0: 49, x1: 191, y1: 191, priority: -10 });
-area({ id: 'wilderness', name: 'The Wilderness', x0: 0, y0: 0, x1: 191, y1: 47, priority: 0 });
-area({ id: 'ashen_wastes', name: 'Ashen Wastes', x0: 0, y0: 12, x1: 191, y1: 47, priority: 1 });
-area({ id: 'frostfang', name: 'Frostfang Peaks', x0: 0, y0: 0, x1: 191, y1: 11, priority: 1 });
-area({ id: 'calder_ruins', name: 'Calder Ruins', x0: 87, y0: 19, x1: 105, y1: 37, priority: 2 });
+area({ id: 'vale', name: 'Ashvale', x0: 0, y0: 49, x1: WORLD_W - 1, y1: WORLD_H - 1, priority: -10 });
+area({ id: 'wilderness', name: 'The Wilderness', x0: 0, y0: 0, x1: WORLD_W - 1, y1: 47, priority: 0 });
+area({ id: 'ashen_wastes', name: 'Ashen Wastes', x0: 0, y0: 12, x1: WORLD_W - 1, y1: 47, priority: 1 });
+area({ id: 'frostfang', name: 'Frostfang Peaks', x0: 0, y0: 0, x1: WORLD_W - 1, y1: 11, priority: 1 });
+area({ id: 'calder_ruins', name: 'Calder Ruins', x0: 87, y0: 19, x1: 105, y1: 37, priority: 2, multi: true });
 area({ id: 'brackenford', name: 'Brackenford', x0: 78, y0: 124, x1: 116, y1: 158, priority: 5 });
 area({ id: 'highmarch', name: 'Highmarch', x0: 140, y0: 52, x1: 182, y1: 102, priority: 5 });
 area({ id: 'thornwood', name: 'Thornwood', x0: 46, y0: 104, x1: 76, y1: 172, priority: 3 });
@@ -105,12 +145,23 @@ area({ id: 'haverly', name: 'Haverly Farms', x0: 140, y0: 146, x1: 180, y1: 177,
 area({ id: 'murkfen', name: 'Murkfen Swamp', x0: 76, y0: 160, x1: 112, y1: 177, priority: 3 });
 area({ id: 'saltmarsh', name: 'Saltmarsh Coast', x0: 45, y0: 178, x1: 191, y1: 191, priority: 2 });
 area({ id: 'gloomhollow', name: 'Gloomhollow Depths', x0: 0, y0: 158, x1: 44, y1: 191, priority: 10, dungeon: true, multi: true });
+wild.areas();
+vale.areas();
+coast.areas();
+east.areas();
+dungeons.areas();
 
 // =================================================================================================
-// Spawns
+// Spawns (hand-placed regions first so the random scatters below flow around them)
 // =================================================================================================
 // --- Wilderness ditch (one long object) -------------------------------------------------------------------
-spawn({ type: 'object', id: 'wilderness_ditch', x: 1, y: 48, w: 190, h: 1 });
+spawn({ type: 'object', id: 'wilderness_ditch', x: 1, y: 48, w: WORLD_W - 2, h: 1 });
+
+vale.spawns();
+coast.spawns();
+east.spawns();
+wild.spawns();
+dungeons.spawns();
 
 // --- Brackenford ----------------------------------------------------------------------------------------------
 spawn({ type: 'building', name: 'Bank', x: 98, y: 127, w: 8, h: 7, wall: 'wall_stone', floor: 'stone_floor', roof: '#5a4a6a', doors: [{ side: 's', offset: 3 }] });
@@ -133,7 +184,7 @@ spawn({ type: 'object', id: 'anvil', x: 107, y: 142 });
 spawn({ type: 'object', id: 'anvil', x: 109, y: 142 });
 spawn({ type: 'object', id: 'barrel', x: 110, y: 137 });
 spawn({ type: 'object', id: 'well', x: 92, y: 136 });
-for (const [x, y] of [[90, 134], [102, 134], [90, 146], [102, 146]]) spawn({ type: 'object', id: 'lamp_post', x, y });
+for (const [x, y] of [[90, 134], [102, 134], [91, 146], [102, 146]]) spawn({ type: 'object', id: 'lamp_post', x, y });
 spawn({ type: 'object', id: 'signpost', x: 93, y: 143 });
 spawn({ type: 'object', id: 'market_stall', x: 98, y: 145 });
 spawn({ type: 'npc', id: 'town_guide', x: 98, y: 138, wander: 2 });
@@ -153,7 +204,7 @@ spawn({ type: 'object', id: 'crate', x: 114, y: 155 });
 spawn({ type: 'object', id: 'barrel', x: 115, y: 155 });
 
 // --- Highmarch -----------------------------------------------------------------------------------------------------
-spawn({ type: 'line', id: 'wall_stone', points: [[140, 52], [182, 52], [182, 102], [140, 102], [140, 52]], gaps: [[140, 76], [140, 77], [140, 78], [160, 102], [161, 102], [162, 102]] });
+spawn({ type: 'line', id: 'wall_stone', points: [[140, 52], [182, 52], [182, 102], [140, 102], [140, 52]], gaps: [[140, 76], [140, 77], [140, 78], [160, 102], [161, 102], [162, 102], [182, 76], [182, 77], [182, 78]] });
 spawn({ type: 'building', name: 'Highmarch Keep', x: 155, y: 55, w: 13, h: 10, wall: 'wall_dark', floor: 'stone_floor', roof: '#3a3a4a', doors: [{ side: 's', offset: 6 }] });
 spawn({ type: 'building', name: 'Bank', x: 143, y: 69, w: 8, h: 6, wall: 'wall_stone', floor: 'stone_floor', roof: '#5a4a6a', doors: [{ side: 'e', offset: 3 }] });
 for (const y of [70, 71, 72]) spawn({ type: 'object', id: 'bank_booth', x: 145, y, rot: 3 });
@@ -216,7 +267,7 @@ spawn({ type: 'scatter', ids: ['boulder'], rect: [2, 160, 42, 190], count: 8, se
 
 // --- Wilderness ---------------------------------------------------------------------------------------------------------------
 spawn({ type: 'scatter', ids: ['dead_tree'], rect: [1, 12, 190, 46], density: 0.012, seed: 20 });
-spawn({ type: 'scatter', ids: ['snow_pine'], rect: [1, 1, 190, 11], density: 0.04, seed: 21, terrain: ['snow'] });
+spawn({ type: 'scatter', ids: ['snow_pine'], rect: [1, 1, 250, 11], density: 0.04, seed: 21, terrain: ['snow'] });
 spawn({ type: 'scatter', ids: ['boulder'], rect: [1, 1, 190, 46], density: 0.004, seed: 22 });
 for (const [x, y] of [[90, 22], [102, 22], [90, 34], [102, 34], [93, 22], [99, 34]]) spawn({ type: 'object', id: 'pillar', x, y });
 for (const [x, y] of [[96, 22], [90, 28], [102, 28], [96, 34]]) spawn({ type: 'object', id: 'broken_pillar', x, y });
@@ -227,3 +278,10 @@ spawn({ type: 'scatter', kind: 'npc', ids: ['skeleton'], rect: [10, 14, 180, 44]
 spawn({ type: 'scatter', kind: 'npc', ids: ['dread_wolf'], rect: [10, 12, 180, 40], count: 6, seed: 24, wander: 5 });
 spawn({ type: 'scatter', kind: 'npc', ids: ['highland_giant'], rect: [120, 14, 180, 40], count: 3, seed: 25, wander: 4 });
 spawn({ type: 'npc', id: 'ashen_wyrm', x: 70, y: 6, wander: 4 });
+
+// --- Decorative scatter (last, so it fills whatever space is left) ---------------------------------------------------
+vale.decor();
+coast.decor();
+east.decor();
+wild.decor();
+dungeons.decor();

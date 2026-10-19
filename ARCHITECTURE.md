@@ -336,14 +336,57 @@ to cave darkness + player torch light; `multi` enables multi-combat (`world.isMu
 Pathfinding: `findPath(world, sx, sy, goal, opts)` in `world/pathfinding.js` (A*, 8-dir, diagonal needs
 both orthogonals free; returns path to closest reachable tile if blocked).
 
-### Current layout (192×192)
-Wilderness `y 0–47` (Frostfang snow `y 0–11`, Calder Ruins ~`(96,28)`, lava pools), ditch at `y 48`.
-Brackenford `(78–116, 124–158)`: bank `(98,127)`, general store, kitchen with range `(86,150)`, chapel
-altar `(111,128)`, furnace `(107,137)`, anvils, market. Thornwood forest `x 46–76, y 104–172`. Greystone
-Quarry around `(44,76)` with cave entrance `(33,63)` → Gloomhollow Depths (sealed SW corner `x 0–44,
-y 158–191`). Silverrun river ≈ `x 120–132` with bridges at `y 92` and `y 140`, Mirrowmere lake `(146,120)`.
-Highmarch walled town `(140–182, 52–102)`. Haverly Farms `(140–180, 146–177)`. Murkfen swamp south of
-Brackenford, coast along `y ≥ 178`, mountains along the east edge.
+### Current layout (288×256)
+The original 192×192 vale is unchanged; the world grew **east** (x 192–287) and **south** (y 192–255).
+Region code: `src/content/map.js` (base + order) and `src/content/map_regions/*.js` (wilderness, vale,
+coast, east, dungeons). Decorative templates are `dec_*` in `content/scenery_models.js`, object defs in
+`content/scenery_defs.js`. Two-way transitions use `def.teleport`; shared arrival tiles are `SPOTS` in
+`map_regions/util.js`. Extra terrain types registered in map.js: `heath red_sand cracked_earth redrock`(blocked)
+`ice glade_grass moss gravel obsidian mud crypt_floor sandstone_floor sewer_floor basalt`(blocked)` bone_ground wet_rock
+scorched dark_stone`.
+
+**Wilderness `y 0–47`, full width** (ditch object at `y 48`, x 1–286). Frostfang Peaks snow `y 0–11` (Rimeglass
+Tarn `(40,6)`, Shrine of the Pale Moon `(150,4)`, Frostfang Heights multi `x 192–246`). Ashen Wastes `y 12–47`:
+Calder Ruins fortress `(84–108, 16–40)` multi, obelisk `(96,27)`; Ossuary Flats `(18–42, 22–46)` multi; Outlaw
+Camp `(40,43)`; Cinder Pits `(60–86, 8–28)` (agent F's gauntlet `x 72–84, y 13–22`); Scorch Rift lava crack
+`(134–160, 18–42)`; Bloodstone Circle `(128,36)` multi; Wrenhollow Ruins `(158–184, 32–46)`; Wyrmbone Hollow
+`(180,16)` multi; Blackbriar Wood `(192–242, 12–47)` (Thicket `y 12–29` multi, Crow's Glade `(214,26)`);
+Cinderfall lava plains `(243–287, 30–47)` multi with the Cinder Depths cave mouth `(255,31)`.
+
+**Vale (x 0–191)** — Brackenford `(78–116, 124–158)`: bank `(98,127)`, general store, kitchen with range
+`(86,150)`, chapel altar `(111,128)` + churchyard `(117–122,124–134)`, furnace `(107,137)`, anvils, market
+`(96,140)`; Crooked Kettle inn `(84–93,113–120)`. Thornwood `x 46–76, y 104–172` (hidden clearing `(66,118)`,
+woodcutter's cabin `(50,125)`). Greystone Quarry `(44,76)`, cave entrance `(33,63)` → Gloomhollow Depths
+(`x 0–44, y 158–191`, continues south into The Sunless Deep `y 192–223`). Silverrun river ≈ `x 120–132`
+(bridges `y 92`, `y 140`; spring falls `(130,50)`), Mirrowmere lake `(146,120)` with island shrine `(146,118)`
++ bridge from `(146,129)`. Highmarch walled town `(140–182, 52–102)`: gates W `(140,76–78)`, S `(160–162,102)`,
+E `(182,76–78)`; keep throne room, Gilded Tankard inn `(141–149,93–100)`, barracks `(176–181,79–91)`, sewer
+manhole `(157,98)`. Haverly Farms `(140–180, 146–177)` + windmill `(168,142)`, barn `(170–178,148–155)`,
+wheat field `(129–139,162–172)`. Murkfen `(76–112, 160–177)`. Landmarks: Whisperstones `(70,96)`, Sentinel Hill
+`(108,72)`, Barrowfield `(6–26,100–122)`, Fort Rowan `(8–22,136–152)`, Westcrag Bluffs `(0–26,82–96)`,
+Hagstone Cottage `(14,64)`, Thistledown Lumber Camp `(66,58)`, Ditchwatch `(101,53)`.
+
+**Coast & sea** — sand `y ≈ 178–183`, Southern Sea `y 184–215`, sea cliffs `y 216–223`. Morrow's Rest graveyard
+`(46–70, 166–184)` with crypt mausoleum `(57,173)`; Bogwick swamp hamlet on boardwalks `(72–118, 176–206)`;
+Thrush Isle `(80,212)` via stepping stones from Bogwick's jetty; Gullhaven fishing village `(156–192, 176–200)`
+(3 piers `x 164/176/187`); Beacon Isle lighthouse `(195,204)`. (Agent C's Homestead plot stands in the sea at
+`(244–259, 203–214)`.)
+
+**East (x 183–287)** — Craghorn ridge `x 183–191` (passes at `y 74–80` from Highmarch and `y 156–161` from
+Haverly). Greyspine Mountains `(192–240, 46–110)`: dwarven hold **Durnhold** `(199–229, 58–94)` (Great Hall,
+Forge Hall `(201–209,82–90)` — free floor `204–207, 84–88` for a furnace/anvil, Stonemug tavern, **Deep Seams**
+mining floor `(214–228, 71–81)` left open for rocks), Frostgate Path to the Wilderness `(210–216, 49–58)`,
+Hollowpick Mine adit `(234,94)`. Bramblemoor heath `(192–240, 110–134)` with Starcaller's Spire `(218,120)`.
+Faelwood `(241–287, 49–128)` with elven town **Ilvaren** `(252–282, 66–100)` (Moonwell `(265,81)`), Silverfall
+`(283,64)`, Lantern Grove `(250,118)`. Sunscar Badlands `(192–287, 134–199)`: outpost **Dustwatch**
+`(228–250, 146–166)`, Scorchgulch canyon `(195–222, 163–178)`, Sunwell Oasis `(270,152)`, Sandswallowed Temple
+`(258–272, 178–192)`, Wreckers' Cove `(232,195)`.
+
+**Dungeons** (sealed `void` pockets, `dungeon: true`): The Sunless Deep `(0–44, 192–223)` (walk south from
+Gloomhollow); Crypt of Morrow's Rest `(0–60, 224–255)`; Highmarch Sewers `(61–141, 224–255)` (also an outflow
+pipe on the Silverrun bank `(121,105)`); Hollowpick Mine `(142–212, 224–255)`; Sandswallowed Vaults
+`(213–270, 224–255)`; Starcaller's Study `(271–287, 224–255)` (lit interior); Cinder Depths `(252–287, 0–29)`
+— inside the Wilderness (levels 19–46), multi.
 
 ---------------------------------------------------------------------------------------------------
 
