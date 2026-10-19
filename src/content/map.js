@@ -166,13 +166,10 @@ dungeons.spawns();
 // --- Brackenford ----------------------------------------------------------------------------------------------
 spawn({ type: 'building', name: 'Bank', x: 98, y: 127, w: 8, h: 7, wall: 'wall_stone', floor: 'stone_floor', roof: '#5a4a6a', doors: [{ side: 's', offset: 3 }] });
 for (const x of [100, 101, 102, 103]) spawn({ type: 'object', id: 'bank_booth', x, y: 129 });
-spawn({ type: 'npc', id: 'banker', x: 100, y: 128, wander: 0 });
-spawn({ type: 'npc', id: 'banker', x: 103, y: 128, wander: 0 });
 spawn({ type: 'building', name: 'General Store', x: 84, y: 127, w: 8, h: 7, wall: 'wall_plaster', roof: '#8a3a2a', doors: [{ side: 's', offset: 4 }] });
 spawn({ type: 'object', id: 'table', x: 86, y: 129 });
 spawn({ type: 'object', id: 'crate', x: 85, y: 128 });
 spawn({ type: 'object', id: 'barrel', x: 90, y: 128 });
-spawn({ type: 'npc', id: 'shopkeeper', x: 88, y: 129, wander: 1 });
 spawn({ type: 'building', name: 'Kitchen', x: 84, y: 146, w: 7, h: 7, wall: 'wall_wood', roof: '#6a4a2a', doors: [{ side: 'n', offset: 4 }] });
 spawn({ type: 'object', id: 'cooking_range', x: 86, y: 150 });
 spawn({ type: 'object', id: 'table', x: 88, y: 150 });
@@ -187,10 +184,6 @@ spawn({ type: 'object', id: 'well', x: 92, y: 136 });
 for (const [x, y] of [[90, 134], [102, 134], [91, 146], [102, 146]]) spawn({ type: 'object', id: 'lamp_post', x, y });
 spawn({ type: 'object', id: 'signpost', x: 93, y: 143 });
 spawn({ type: 'object', id: 'market_stall', x: 98, y: 145 });
-spawn({ type: 'npc', id: 'town_guide', x: 98, y: 138, wander: 2 });
-spawn({ type: 'npc', id: 'villager', x: 94, y: 144, wander: 5 });
-spawn({ type: 'npc', id: 'villager', x: 104, y: 139, wander: 5 });
-spawn({ type: 'npc', id: 'imp', x: 82, y: 150, wander: 6 });
 
 // --- Bridges railings ------------------------------------------------------------------------------------------
 spawn({ type: 'line', id: 'fence_wood', points: [[120, 138], [132, 138]] });
@@ -199,7 +192,6 @@ spawn({ type: 'line', id: 'fence_wood', points: [[118, 90], [132, 90]] });
 spawn({ type: 'line', id: 'fence_wood', points: [[118, 94], [132, 94]] });
 
 // --- Goblin camp east of town ------------------------------------------------------------------------------------
-spawn({ type: 'scatter', kind: 'npc', ids: ['goblin'], rect: [108, 150, 120, 162], count: 6, seed: 11, wander: 4 });
 spawn({ type: 'object', id: 'crate', x: 114, y: 155 });
 spawn({ type: 'object', id: 'barrel', x: 115, y: 155 });
 
@@ -208,12 +200,9 @@ spawn({ type: 'line', id: 'wall_stone', points: [[140, 52], [182, 52], [182, 102
 spawn({ type: 'building', name: 'Highmarch Keep', x: 155, y: 55, w: 13, h: 10, wall: 'wall_dark', floor: 'stone_floor', roof: '#3a3a4a', doors: [{ side: 's', offset: 6 }] });
 spawn({ type: 'building', name: 'Bank', x: 143, y: 69, w: 8, h: 6, wall: 'wall_stone', floor: 'stone_floor', roof: '#5a4a6a', doors: [{ side: 'e', offset: 3 }] });
 for (const y of [70, 71, 72]) spawn({ type: 'object', id: 'bank_booth', x: 145, y, rot: 3 });
-spawn({ type: 'npc', id: 'banker', x: 144, y: 71, wander: 0 });
 spawn({ type: 'building', name: 'Arms shop', x: 168, y: 69, w: 7, h: 6, wall: 'wall_plaster', roof: '#2a5a3a', doors: [{ side: 'w', offset: 3 }] });
-spawn({ type: 'npc', id: 'arms_dealer', x: 172, y: 71, wander: 1 });
 spawn({ type: 'building', name: 'House', x: 168, y: 84, w: 7, h: 7, wall: 'wall_plaster', roof: '#7a3a2a', doors: [{ side: 'w', offset: 3 }] });
 spawn({ type: 'building', name: "Warden's lodge", x: 143, y: 85, w: 8, h: 7, wall: 'wall_wood', roof: '#4a3a2a', doors: [{ side: 'e', offset: 3 }] });
-spawn({ type: 'npc', id: 'slayer_master_hollis', x: 146, y: 88, wander: 1 });
 spawn({ type: 'building', name: 'Temple', x: 171, y: 55, w: 9, h: 8, wall: 'wall_stone', floor: 'stone_floor', roof: '#4a4a5a', doors: [{ side: 's', offset: 4 }] });
 spawn({ type: 'object', id: 'altar', x: 175, y: 57 });
 spawn({ type: 'building', name: 'House', x: 150, y: 90, w: 6, h: 6, wall: 'wall_plaster', roof: '#8a4a2a', doors: [{ side: 'n', offset: 2 }] });
@@ -221,48 +210,28 @@ spawn({ type: 'building', name: 'House', x: 170, y: 93, w: 7, h: 6, wall: 'wall_
 for (const [x, y] of [[156, 73], [164, 73], [156, 81], [164, 81]]) spawn({ type: 'object', id: 'market_stall', x, y });
 spawn({ type: 'object', id: 'well', x: 161, y: 77 });
 for (const [x, y] of [[152, 76], [170, 76], [160, 68], [160, 96]]) spawn({ type: 'object', id: 'lamp_post', x, y });
-spawn({ type: 'scatter', kind: 'npc', ids: ['villager'], rect: [145, 74, 178, 82], count: 4, seed: 5, wander: 6 });
 
 // --- Haverly Farms --------------------------------------------------------------------------------------------------
 spawn({ type: 'line', id: 'fence_wood', points: [[158, 150], [167, 150], [167, 158], [158, 158], [158, 150]], gaps: [[162, 158]] });
-spawn({ type: 'npc', id: 'chicken', x: 161, y: 153, wander: 2 });
-spawn({ type: 'npc', id: 'chicken', x: 164, y: 154, wander: 2 });
-spawn({ type: 'npc', id: 'chicken', x: 162, y: 156, wander: 2 });
-spawn({ type: 'npc', id: 'chicken', x: 160, y: 155, wander: 2 });
 spawn({ type: 'line', id: 'fence_wood', points: [[160, 161], [178, 161], [178, 175], [160, 175], [160, 161]], gaps: [[160, 166], [160, 167]] });
-for (const [x, y] of [[164, 164], [170, 166], [174, 170], [166, 171], [172, 163], [168, 168]]) spawn({ type: 'npc', id: 'cow', x, y, wander: 4 });
 spawn({ type: 'building', name: 'Farmhouse', x: 142, y: 165, w: 8, h: 7, wall: 'wall_wood', roof: '#8a6a3a', doors: [{ side: 'e', offset: 3 }], doorObject: 'door_wood' });
 for (const [x, y] of [[152, 164], [154, 166], [151, 168]]) spawn({ type: 'object', id: 'hay_bale', x, y });
 
 // --- Thornwood + vale trees -------------------------------------------------------------------------------------------
 spawn({ type: 'scatter', ids: [{ id: 'tree_normal', weight: 6 }, { id: 'tree_birch', weight: 3 }, { id: 'tree_redleaf', weight: 1 }, { id: 'pine_tree', weight: 1 }], rect: [46, 104, 76, 172], density: 0.075, seed: 1 });
-spawn({ type: 'scatter', ids: ['tree_ironbark'], rect: [50, 112, 72, 165], count: 4, seed: 9, spacing: 2 });
-spawn({ type: 'scatter', ids: ['tree_starwood'], rect: [52, 140, 72, 168], count: 2, seed: 10, spacing: 2 });
-spawn({ type: 'scatter', ids: ['tree_weepwood'], circle: [146, 120, 14], rect: [130, 104, 162, 136], count: 9, seed: 3 });
 spawn({ type: 'scatter', ids: [{ id: 'tree_normal', weight: 4 }, { id: 'pine_tree', weight: 2 }, { id: 'tree_birch', weight: 1 }], rect: [1, 50, 182, 178], density: 0.006, seed: 2 });
 spawn({ type: 'scatter', ids: ['bush', 'berry_bush'], rect: [1, 50, 182, 178], density: 0.004, seed: 4 });
 spawn({ type: 'scatter', ids: ['flowers'], rect: [1, 50, 182, 178], density: 0.006, seed: 6, spacing: 0 });
-spawn({ type: 'scatter', kind: 'npc', ids: ['giant_spider'], rect: [50, 110, 72, 165], count: 5, seed: 12, wander: 5 });
 
 // --- Greystone Quarry -------------------------------------------------------------------------------------------------
 spawn({ type: 'object', id: 'cave_entrance', x: 33, y: 63 });
-spawn({ type: 'scatter', ids: [{ id: 'rock_copper', weight: 4 }, { id: 'rock_tin', weight: 4 }, { id: 'rock_iron', weight: 3 }, { id: 'rock_coal', weight: 2 }], circle: [44, 76, 12], rect: [30, 62, 58, 90], count: 42, seed: 7, terrain: ['stone'] });
 spawn({ type: 'scatter', ids: ['boulder'], rect: [29, 60, 60, 92], count: 10, seed: 8, terrain: ['stone'] });
-spawn({ type: 'npc', id: 'quarry_golem', x: 52, y: 70, wander: 3 });
 
 // --- Murkfen ---------------------------------------------------------------------------------------------------------------
 spawn({ type: 'scatter', ids: ['dead_tree', 'bush'], rect: [76, 162, 112, 177], count: 14, seed: 13, terrain: ['swamp'] });
-spawn({ type: 'scatter', kind: 'npc', ids: ['giant_rat'], rect: [78, 163, 110, 176], count: 6, seed: 14, wander: 4, terrain: ['swamp'] });
-
-// --- Fishing spots ---------------------------------------------------------------------------------------------------------
-spawn({ type: 'scatter', ids: ['fishing_spot_net'], rect: [118, 120, 134, 175], count: 4, seed: 15, water: true });
-spawn({ type: 'scatter', ids: ['fishing_spot_bait'], rect: [136, 110, 156, 130], count: 3, seed: 16, water: true });
 
 // --- Gloomhollow Depths ---------------------------------------------------------------------------------------------------
 spawn({ type: 'object', id: 'cave_rope', x: 20, y: 175 });
-spawn({ type: 'scatter', kind: 'npc', ids: ['cave_bat'], rect: [4, 162, 40, 188], count: 4, seed: 17, wander: 4, terrain: ['cave_floor'] });
-spawn({ type: 'scatter', kind: 'npc', ids: ['zombie', 'skeleton'], rect: [4, 162, 30, 188], count: 5, seed: 18, wander: 3, terrain: ['cave_floor'] });
-spawn({ type: 'npc', id: 'gloom_fiend', x: 34, y: 182, wander: 2 });
 spawn({ type: 'scatter', ids: ['boulder'], rect: [2, 160, 42, 190], count: 8, seed: 19, terrain: ['cave_floor'] });
 
 // --- Wilderness ---------------------------------------------------------------------------------------------------------------
@@ -274,10 +243,6 @@ for (const [x, y] of [[96, 22], [90, 28], [102, 28], [96, 34]]) spawn({ type: 'o
 for (const [x, y] of [[92, 25], [93, 25], [100, 31], [101, 31], [100, 25]]) spawn({ type: 'object', id: 'ruin_wall', x, y });
 spawn({ type: 'object', id: 'obelisk', x: 96, y: 27 });
 for (let i = 0; i < 9; i++) spawn({ type: 'object', id: 'gravestone', x: 26 + (i % 3) * 3, y: 36 + Math.floor(i / 3) * 3 });
-spawn({ type: 'scatter', kind: 'npc', ids: ['skeleton'], rect: [10, 14, 180, 44], count: 8, seed: 23, wander: 4 });
-spawn({ type: 'scatter', kind: 'npc', ids: ['dread_wolf'], rect: [10, 12, 180, 40], count: 6, seed: 24, wander: 5 });
-spawn({ type: 'scatter', kind: 'npc', ids: ['highland_giant'], rect: [120, 14, 180, 40], count: 3, seed: 25, wander: 4 });
-spawn({ type: 'npc', id: 'ashen_wyrm', x: 70, y: 6, wander: 4 });
 
 // --- Decorative scatter (last, so it fills whatever space is left) ---------------------------------------------------
 vale.decor();

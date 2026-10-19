@@ -110,6 +110,27 @@ export class RenderManager {
     this.scene.fog.near = 38 * dd; this.scene.fog.far = 95 * dd;
   }
 
+  /**
+   * Auto quality: if the game keeps running below ~30 fps (visible tab, game started), turn shadows off,
+   * then shorten the draw distance, telling the player once each. Settings > 'Auto quality' disables it.
+   */
+  autoQuality() {
+    const g = this.game, s = g.player?.settings;
+    if (!s || !g.started || document.hidden || s.autoQuality === false) { this._slow = 0; return; }
+    if (this.fps >= 30) { this._slow = Math.max(0, (this._slow || 0) - 1); return; }
+    if (++this._slow < 10) return; // ~5 s of sustained low frame rate
+    this._slow = 0;
+    if (s.shadows) {
+      s.shadows = false;
+      g.message('<col=8a5a00>The game was running slowly, so shadows were turned off (Settings tab to change).</col>');
+    } else if ((s.drawDistance ?? 1) > 0) {
+      s.drawDistance = (s.drawDistance ?? 1) - 1;
+      g.message('<col=8a5a00>The game was running slowly, so the draw distance was reduced (Settings tab to change).</col>');
+    } else return;
+    this.applySettings();
+    g.ui?.refreshTab?.('settings');
+  }
+
   /** Mix sky/fog/sun between normal, wilderness and cave palettes. */
   updateAtmosphere(dt) {
     const p = this.game.player;
@@ -142,7 +163,7 @@ export class RenderManager {
 
     // fps
     this._fpsAcc += dt; this._fpsN++;
-    if (this._fpsAcc > 0.5) { this.fps = Math.round(this._fpsN / this._fpsAcc); this._fpsAcc = 0; this._fpsN = 0; }
+    if (this._fpsAcc > 0.5) { this.fps = Math.round(this._fpsN / this._fpsAcc); this._fpsAcc = 0; this._fpsN = 0; this.autoQuality(); }
 
     // characters (cull by distance from the player)
     const visible = [];

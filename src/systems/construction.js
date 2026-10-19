@@ -11,7 +11,7 @@ let game;
 
 const NAIL_BEND = [0.25, 0.18, 0.12, 0.08, 0.05, 0.03, 0.01];
 const NAILS = SMITH_TIERS.map((t, k) => ({ id: `${t.id}_nails`, bend: NAIL_BEND[k] }));
-const store = (p = game.player) => { const s = p.store('construction'); s.built = s.built || {}; return s; };
+const store = (p = game.player) => { const s = p.store('construction'); if (!s.built || typeof s.built !== 'object') s.built = {}; return s; };
 const hotspotOf = (obj) => HOTSPOTS.find((h) => h.id === obj.id || (obj.x === h.x && obj.y === h.y && obj.def?.homestead));
 const nailCount = (p) => NAILS.reduce((n, t) => n + p.inventory.count(t.id), 0);
 const matList = (f) => Object.entries(f.materials).map(([id, qty]) => ({ id, qty }));

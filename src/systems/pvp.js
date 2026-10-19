@@ -19,6 +19,8 @@ const SKULL_TICKS = 2000;              // 20 minutes
 const FIRST_STRIKE_MEMORY = 2000;      // they attacked you first if within 20 minutes
 const PVP_PROTECT = 0.6;               // protect prayers block 40% in PvP
 const KILL_CREDIT_TICKS = 17;          // a remote that hit you within ~10 s gets the kill
+const WILD_GRACE_TICKS = 4;            // hits arriving this long after leaving the Wilderness still count
+const LOOT_PRIVATE_TICKS = 100;        // PvP loot is the killer's alone for a minute, then anyone's (shared Wilderness items)
 
 const SPECIAL_EFFECTS = {
   venom_rend: (dmg) => (dmg > 0 ? { poison: 6 } : null),
@@ -37,14 +39,46 @@ export function initPvp(game) {
 
   function busyWith(p) {
     const lh = game.combat?.lastHit?.();
-    if (lh?.source && tick() - lh.tick < 8 && !lh.source.dead) return lh.source.type === 'remote' ? lh.source.peerId : 'npc';
+    if (lh?.source && tick() - lh.tick < 8 && !lh.source.dead && !game.targetGone?.(lh.source)) return lh.source.type === 'remote' ? lh.source.peerId : 'npc';
     const t = p.combatTarget;
     if (t && game.combat?.inCombat?.(8)) return t.type === 'remote' ? t.peerId : 'npc';
     return null;
   }
 
+  let lastWildTick = -999;
+  game.onTick(() => { const p = game.player; if (!p.dead && wl(p.x, p.y) > 0) lastWildTick = tick(); }, 5);
+  const pending = new Map();      // hid -> {remote, shown, timer}: predicted splats waiting for the victim's real one
+  let hidSeq = 0;
+  const showSplat = (remote, amount) => {
+    if (!remote || !game.remotePlayers.has(remote.peerId)) return;
+    game.applyDamage(remote, amount, { source: game.player, type: 'typeless', predicted: true });
+  };
+
   const pvp = {
     attackedBy,
+
+    /** Wilderness + level-bracket rule only (no single-way check). */
+    bracket(remote) {
+      const p = game.player;
+      const mine = wl(p.x, p.y), theirs = remoteWl(remote);
+      if (mine <= 0) return { ok: false, reason: 'You can only fight other players in the Wilderness.' };
+      if (theirs <= 0) return { ok: false, reason: `${remote.name} is not in the Wilderness.` };
+      const diff = Math.abs(p.combatLevel - (remote.combatLevel || 3));
+      if (diff > Math.min(mine, theirs)) return { ok: false, reason: `The level difference between you and ${remote.name} is too great. Venture deeper into the Wilderness.` };
+      return { ok: true, reason: '' };
+    },
+
+    /**
+     * The victim's client reported the real hitsplat for one of our hits (net calls this).
+     * Returns true when it matched a pending predicted splat (which is then cancelled).
+     */
+    confirmHit(hid) {
+      const h = hid != null && pending.get(hid);
+      if (!h) return false;
+      clearTimeout(h.timer);
+      pending.delete(hid);
+      return true;
+    },
 
     canAttack(remote) {
       const p = game.player;
@@ -52,11 +86,8 @@ export function initPvp(game) {
       if (p.dead) return { ok: false, reason: 'You are dead.' };
       if (remote.dead) return { ok: false, reason: 'That player is already dead.' };
       if (!game.remotePlayers.has(remote.peerId)) return { ok: false, reason: 'That player has left.' };
-      const mine = wl(p.x, p.y), theirs = remoteWl(remote);
-      if (mine <= 0) return { ok: false, reason: 'You can only fight other players in the Wilderness.' };
-      if (theirs <= 0) return { ok: false, reason: `${remote.name} is not in the Wilderness.` };
-      const diff = Math.abs(p.combatLevel - (remote.combatLevel || 3));
-      if (diff > Math.min(mine, theirs)) return { ok: false, reason: `The level difference between you and ${remote.name} is too great. Venture deeper into the Wilderness.` };
+      const br = pvp.bracket(remote);
+      if (!br.ok) return br;
       const multi = game.world.isMulti(p.x, p.y) && game.world.isMulti(remote.x, remote.y);
       if (!multi) {
         const theirBusy = remote.extra?.busyWith;
@@ -86,8 +117,8 @@ export function initPvp(game) {
       raw = Math.max(0, Math.floor(raw));
       const prot = Array.isArray(remote.extra?.overheads) && remote.extra.overheads.some((id) => game.registry.getPrayer(id)?.effects?.protect === style);
       const shown = Math.min(prot ? Math.floor(raw * PVP_PROTECT) : raw, Math.max(0, remote.hp));
-      game.applyDamage(remote, shown, { source: p, type: style });
-      const payload = { damage: raw, style, attackerName: p.name, attackerCombat: p.combatLevel, ts: Date.now() };
+      const hid = `${game.tickCount.toString(36)}-${(++hidSeq).toString(36)}`;
+      const payload = { damage: raw, style, attackerName: p.name, attackerCombat: p.combatLevel, ts: Date.now(), hid };
       const sp = info.spell;
       if (sp) {
         if (sp.bind) Object.assign(payload, { effect: 'bind', effectTicks: sp.bind });
@@ -98,7 +129,15 @@ export function initPvp(game) {
       const sfx = info.special && SPECIAL_EFFECTS[info.special.id]?.(raw);
       if (sfx) Object.assign(payload, sfx);
       if (raw > 0 && game.prayer?.has(p, 'soulrend')) payload.drainPrayer = Math.floor(raw / 4);
-      try { game.net?.sendHit?.(remote.peerId, payload); } catch (e) { console.error('[pvp] sendHit failed', e); }
+      let sent = false;
+      try { sent = !!game.net?.sendHit?.(remote.peerId, payload); } catch (e) { console.error('[pvp] sendHit failed', e); }
+      // The victim's client is authoritative: it answers with the real hitsplat (game.net -> confirmHit).
+      // Show our prediction only if that answer doesn't arrive in time (or we're offline).
+      if (sent) {
+        const timer = setTimeout(() => { if (pending.delete(hid)) showSplat(remote, shown); }, 1500);
+        pending.set(hid, { remote, shown, timer });
+      } else showSplat(remote, shown);
+      remote.lastAttackedTick = game.tickCount;
       ev.emit('pvp:hit', { remote, payload, shown });
       return shown;
     },
@@ -107,6 +146,8 @@ export function initPvp(game) {
     receiveHit(fromRemote, data = {}) {
       const p = game.player;
       if (!p || p.dead) return 0;
+      // PvP only happens in the Wilderness; hits already in flight when we stepped out still land
+      if (wl(p.x, p.y) <= 0 && tick() - lastWildTick > WILD_GRACE_TICKS) return 0;
       if (fromRemote?.peerId != null) attackedBy.set(fromRemote.peerId, tick());
       let style = String(data.style || 'melee');
       if (['stab', 'slash', 'crush'].includes(style)) style = 'melee';
@@ -139,7 +180,7 @@ export function initPvp(game) {
       let n = 0;
       for (const it of data.items || []) {
         if (!it || !getItem(it.id) || !(it.qty > 0)) continue;
-        game.spawnGroundItem(it.id, Math.floor(it.qty), x, y, { owner: p.name, ticks: 6000, privateTicks: 6000 });
+        game.spawnGroundItem(it.id, Math.floor(it.qty), x, y, { owner: p.name, ticks: 6000, privateTicks: LOOT_PRIVATE_TICKS });
         n++;
       }
       const name = fromRemote?.name || 'Your foe';
@@ -194,8 +235,10 @@ export function initPvp(game) {
   ev.on('menu:playerOptions', (e) => {
     const p = game.player;
     const r = e.target;
-    if (!r || wl(p.x, p.y) <= 0 || remoteWl(r) <= 0 || e.options.includes('Attack')) return;
-    if (pvp.canAttack(r).ok) e.options.unshift('Attack'); else e.options.push('Attack');
+    // Attack is only offered when both are in the Wilderness and within each other's level bracket
+    // (left-click attacks); the single-way "already in combat" rule is reported when it is chosen.
+    if (!r || r.dead || p.dead || e.options.includes('Attack') || !pvp.bracket(r).ok) return;
+    e.options.unshift('Attack');
   });
 
   game.interactions.onPlayer('Attack', ({ player, target }) => {
@@ -206,7 +249,9 @@ export function initPvp(game) {
 
   ev.on('remote:remove', ({ remote }) => {
     if (game.player.combatTarget === remote) game.combat?.stop(game.player);
+    if (game.player.faceTarget === remote) game.player.faceTarget = null;
     attackedBy.delete(remote.peerId);
+    for (const [hid, h] of pending) if (h.remote === remote) { clearTimeout(h.timer); pending.delete(hid); }
   });
   ev.on('player:respawn', () => { attackedBy.clear(); myAttacks.clear(); });
 }

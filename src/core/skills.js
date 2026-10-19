@@ -93,8 +93,9 @@ export class Skills {
   fromJSON(data) {
     if (!data) return;
     for (const s of SKILLS) {
-      if (data.xp && data.xp[s] != null) this.setXp(s, data.xp[s]);
-      if (data.current && data.current[s] != null) this.current[s] = data.current[s];
+      const xp = Number(data.xp?.[s]), cur = Number(data.current?.[s]);
+      if (Number.isFinite(xp) && xp >= 0) this.setXp(s, xp);
+      if (Number.isFinite(cur) && cur >= 0) this.current[s] = Math.floor(cur);
     }
   }
 }

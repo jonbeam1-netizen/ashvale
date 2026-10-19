@@ -22,6 +22,13 @@ const CSS = `
 .net-plvl { color: #ffff00; font-size: 11px; }
 .net-ping { font-size: 11px; min-width: 40px; text-align: right; }
 .net-note { font-size: 11px; padding: 4px 2px; }
+.net-stats { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; background: rgba(0,0,0,0.25); border-radius: 2px; }
+.net-online-count { color: #fff; white-space: nowrap; }
+.net-online-count b { color: #ffff00; }
+.net-quality { display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap; }
+.net-bars { display: inline-flex; align-items: flex-end; gap: 1px; height: 12px; }
+.net-bars i { display: block; width: 3px; background: #3a3a3a; border: 1px solid #000; }
+.net-bars i:nth-child(1) { height: 4px; } .net-bars i:nth-child(2) { height: 7px; } .net-bars i:nth-child(3) { height: 10px; } .net-bars i:nth-child(4) { height: 13px; }
 .net-toast { position: absolute; left: 10px; bottom: 196px; z-index: 45; pointer-events: auto; background: linear-gradient(180deg, var(--stone-1), var(--stone-2)); border: 2px solid var(--stone-dark); box-shadow: inset 0 0 0 1px var(--stone-light), 0 4px 14px rgba(0,0,0,0.6); border-radius: 4px; padding: 6px 8px; color: var(--text); }
 .net-toast b { color: #fff; }
 .net-toast + .net-toast { bottom: 262px; }
@@ -84,9 +91,11 @@ export class NetPanel {
         <div class="net-code" title="Share this code with friends"></div>
         <div class="net-row"><button class="btn net-copylink">Copy invite link</button><button class="btn net-copycode">Copy code</button></div>
       </div>
-      <div class="net-players hidden"><div class="net-label">Players <span class="net-count muted"></span></div><div class="net-list"></div></div>
+      <div class="net-players hidden">
+        <div class="net-stats"><span class="net-online-count"></span><span class="net-quality" title="Connection quality"></span></div>
+        <div class="net-label">Players <span class="net-count muted"></span></div><div class="net-list"></div></div>
       <button class="btn danger net-leave hidden">Leave world</button>
-      <div class="muted net-note">Everyone shares the same map and keeps their own save. Monsters and resources are local to each player; other players, chat, trading and Wilderness PvP are shared.</div>`;
+      <div class="muted net-note">Everyone shares the same map and keeps their own save. Monsters and resources are local to each player; other players, chat, trading, Wilderness PvP and items lying in the Wilderness are shared.</div>`;
     pane.appendChild(r);
     this.root = r;
     const q = (s) => r.querySelector(s);
@@ -94,6 +103,7 @@ export class NetPanel {
       status: q('.net-status'), error: q('.net-error'), offline: q('.net-offline'), online: q('.net-online'),
       code: q('.net-code'), players: q('.net-players'), list: q('.net-list'), count: q('.net-count'),
       leave: q('.net-leave'), host: q('.net-host'), join: q('.net-join'), input: q('.net-input'),
+      onlineCount: q('.net-online-count'), quality: q('.net-quality'),
     };
     const { input } = this.els;
     const doJoin = () => { const v = input.value; if (v.trim()) this.net.join(v); };
@@ -147,6 +157,37 @@ export class NetPanel {
     return `<span style="color:${c}">${ms}ms</span>`;
   }
 
+  /** Connection quality 0-4 + label, from our ping (joiner) or the worst joiner ping (host) and link freshness. */
+  quality() {
+    const s = this.net.session;
+    const now = Date.now();
+    let ping = null, stale = 0;
+    if (s.isHost) {
+      const links = s.joinedLinks();
+      if (!links.length) return { level: 4, label: s.peer?.disconnected ? 'Server lost' : 'Waiting', ping: null, signalling: !s.peer?.disconnected };
+      for (const l of links) { if (l.ping != null) ping = Math.max(ping ?? 0, l.ping); stale = Math.max(stale, now - l.lastSeen); }
+    } else {
+      ping = s.myPing;
+      stale = s.hostLink ? now - s.hostLink.lastSeen : 0;
+    }
+    let level = ping == null ? 3 : ping < 100 ? 4 : ping < 200 ? 3 : ping < 400 ? 2 : 1;
+    if (stale > 6000) level = Math.min(level, 1);
+    if (stale > 12000) level = 0;
+    const label = ['Lost', 'Poor', 'Fair', 'Good', 'Excellent'][level];
+    return { level, label, ping };
+  }
+
+  renderQuality() {
+    const pingDesc = (q) => (this.net.session.isHost ? `slowest player ${q.ping} ms` : `${q.ping} ms to the host`);
+    const E = this.els;
+    if (!E?.quality) return;
+    const q = this.quality();
+    const col = ['#ff3030', '#ff5040', '#ffb040', '#c0ff40', '#40ff40'][q.level];
+    const bars = [1, 2, 3, 4].map((i) => `<i style="${i <= q.level ? `background:${col}` : ''}"></i>`).join('');
+    E.quality.innerHTML = `<span class="net-bars">${bars}</span><span style="color:${col}">${q.label}${q.ping != null ? ` ${q.ping}ms` : ''}</span>`;
+    E.quality.title = `Connection quality: ${q.label}${q.ping != null ? ` (${pingDesc(q)})` : ''}`;
+  }
+
   renderPlayers() {
     const g = this.game, s = this.net.session, E = this.els;
     E.list.innerHTML = '';
@@ -176,6 +217,9 @@ export class NetPanel {
       row(rp.name, rp.combatLevel, this.pingText(ping), isHost ? '(host)' : '', false, rp);
     }
     E.count.textContent = `(${rps.length + 1}/${MAX_PLAYERS})`;
+    E.onlineCount.innerHTML = `Online: <b>${rps.length + 1}</b>`;
+    E.onlineCount.title = `${rps.length + 1} player${rps.length ? 's' : ''} online in this world`;
+    this.renderQuality();
   }
 
   // ---- toasts ----------------------------------------------------------------------------------

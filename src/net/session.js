@@ -12,7 +12,7 @@ import {
   makeCode, randomId, normalizeCode, isObj, cleanId, int, cleanText,
 } from './protocol.js';
 
-const PEER_OPTS = { debug: 1 };
+const PEER_OPTS = { debug: 0 }; // errors are reported through the 'error' events (no console noise)
 const CONN_OPTS = { reliable: true, serialization: 'json' };
 const RATE_SOFT = 60;    // messages/second per connection before we start ignoring
 const RATE_HARD = 400;   // messages/second per connection before we kick
@@ -307,6 +307,7 @@ export class Session {
     } else if (this.role === 'joiner' && this.status === 'joined') {
       if (now - this.hostLink.lastSeen > TIMEOUT_MS) { this.end('Lost connection to the host (timed out).'); return; }
       this.sendRaw(this.hostLink.conn, { t: 'ping', ts: now });
+      this.h.roster(); // refresh the connection-quality indicator even if the host went quiet
     }
   }
 

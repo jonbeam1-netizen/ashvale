@@ -18,6 +18,7 @@ registerShop({
     S('tinderbox', 5), S('hammer', 5), S('knife', 5), S('chisel', 5), S('needle', 5), S('thread', 30),
     S('small_net', 5), S('bronze_axe', 5), S('bronze_pickaxe', 5), S('pot', 5), S('bucket', 5), S('jug', 5),
     S('bread', 10), S('cooked_meat', 10), S('wooden_shield', 3), S('leather_boots', 3), S('leather_gloves', 3), S('cape_red', 2), S('cape_blue', 2),
+    S('bird_snare', 5), S('butterfly_net', 3), S('butterfly_jar', 20),
   ],
 });
 registerShop({
@@ -52,7 +53,9 @@ registerShop({
 registerShop({
   id: 'brackenford_archery', name: "Rowan's Bows", sellRate: 1.0, buyRate: 0.5, restockTicks: 15,
   stock: [S('shortbow', 5), S('longbow', 5), S('birch_shortbow', 3), S('birch_longbow', 3), S('bronze_arrows', 500), S('iron_arrows', 300), S('steel_arrows', 100), S('bronze_dart', 300), S('iron_dart', 200),
-    S('arrow_shaft', 500), S('headless_arrow', 200), S('bowstring', 50), S('feather', 500), S('leather_body', 3), S('leather_chaps', 3), S('leather_coif', 3), S('leather_vambraces', 3)],
+    S('arrow_shaft', 500), S('headless_arrow', 200), S('bowstring', 50), S('feather', 500), S('leather_body', 3), S('leather_chaps', 3), S('leather_coif', 3), S('leather_vambraces', 3),
+    // hunter gear
+    S('bird_snare', 10), S('box_trap', 10), S('butterfly_net', 5), S('butterfly_jar', 50)],
 });
 registerShop({
   id: 'brackenford_herbalist', name: "Maeve's Remedies", sellRate: 1.0, buyRate: 0.5, restockTicks: 25,
@@ -69,7 +72,8 @@ registerShop({
 });
 registerShop({
   id: 'highmarch_plate', name: "Dorran's Plate & Blade", sellRate: 1.15, buyRate: 0.55, restockTicks: 60,
-  stock: [...tierSet('duskite', [...WEAPONS, ...ARMOUR], 2), ...tierSet('verdite', [...WEAPONS, ...ARMOUR], 1), S('steel_pickaxe', 3), S('duskite_pickaxe', 2), S('verdite_pickaxe', 1)],
+  stock: [...tierSet('duskite', [...WEAPONS, ...ARMOUR], 2), ...tierSet('verdite', [...WEAPONS, ...ARMOUR], 1), S('steel_pickaxe', 3), S('duskite_pickaxe', 2), S('verdite_pickaxe', 1),
+    S('steel_axe', 3), S('duskite_axe', 2), S('verdite_axe', 1)],
 });
 registerShop({
   id: 'highmarch_arcana', name: 'Highmarch Arcane Archive', sellRate: 1.1, buyRate: 0.5, restockTicks: 20,
@@ -82,7 +86,8 @@ registerShop({
 });
 registerShop({
   id: 'highmarch_general', name: 'Highmarch Provisions', general: true, sellRate: 1.05, buyRate: 0.4, restockTicks: 20,
-  stock: [S('bread', 20), S('cooked_chicken', 15), S('cake', 5), S('tinderbox', 5), S('hammer', 5), S('knife', 5), S('chisel', 5), S('iron_axe', 3), S('iron_pickaxe', 3), S('cape_green', 2), S('cape_black', 2)],
+  stock: [S('bread', 20), S('cooked_chicken', 15), S('cake', 5), S('tinderbox', 5), S('hammer', 5), S('knife', 5), S('chisel', 5), S('iron_axe', 3), S('iron_pickaxe', 3), S('steel_axe', 2), S('steel_pickaxe', 2), S('cape_green', 2), S('cape_black', 2),
+    S('bird_snare', 5), S('box_trap', 5), S('butterfly_net', 3), S('butterfly_jar', 20)],
 });
 
 // =================================================================================================

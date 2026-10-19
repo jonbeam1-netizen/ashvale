@@ -50,6 +50,8 @@ export function paintTerrain() {
   tunnel([[24, 202], [36, 208]], 2.5, 'cave_floor'); circ(36, 209, 5, 'cave_floor');           // Widow's nest
   tunnel([[18, 208], [20, 214], [28, 217]], 3, 'cave_floor'); circ(29, 217, 5, 'dark_stone');  // Wyrm's Hoard
   circ(33, 219, 1.6, 'lava', { jitter: 0.4 });
+  tunnel([[14, 212], [10, 216]], 2.5, 'cave_floor'); circ(8, 218, 5, 'dark_stone');            // Tyrant's Hollow (Varrath)
+  tunnel([[35, 213], [39, 216]], 2.5, 'cave_floor'); circ(39, 218, 4.2, 'cave_floor');         // Azure Grotto
 
   // =================================================================================================
   // Crypt of Morrow's Rest
@@ -149,6 +151,15 @@ export function spawns() {
   npc('shardstone_golem', 12, 212, 3);
   npcScatter(['drakeling'], [22, 210, 34, 222], 2, 9103, 3, { terrain: ['dark_stone', 'cave_floor'] });
   npc('crimson_dragon', 28, 218, 2);
+  // former Gloomhollow residents: the deep is where the big things live (bosses moved out of the quest caverns)
+  npcScatter(['rot_specter', 'hollow_reaver'], [18, 196, 30, 206], 4, 9104, 3, { terrain: ['cave_floor'] });
+  npcScatter(['thirst_bat'], [6, 198, 40, 214], 3, 9105, 4, { terrain: ['cave_floor'] });
+  npc('gloom_fiend', 16, 212, 2);
+  npc('mother_skitterlace', 36, 208, 2);                 // queen of the Widow's nest
+  npc('void_stalker', 12, 214, 2); npc('umbral_beast', 6, 216, 2);
+  npc('varrath_gloom_tyrant', 7, 218, 1);               // Tyrant's Hollow, the deepest dark
+  npc('azure_dragon', 38, 217, 1);                       // Azure Grotto
+  readable('deep_warning', 33, 189, 'Scratched warning', '"TURN BACK. Below here is the Sunless Deep. Golems, dragons and worse. - the Greystone crews" Someone has added underneath, in smaller letters: "We mean it."', 0, { model: { template: 'dec_signpost', arms: 1 } });
   item('coins', 28, 216, 250, 300); item('ancient_coin', 26, 218, 1, 400);
 
   // =================================================================================================

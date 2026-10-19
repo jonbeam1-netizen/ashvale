@@ -230,12 +230,44 @@ export function buildWorld(game) {
   // 8. areas
   world.setAreas(allAreas());
 
-  // 9. spawns
-  for (const r of rules) {
-    try { resolveSpawn(game, world, r, seed); } catch (e) { console.error('[map] spawn rule failed', r, e); }
+  // 9. spawns: scenery/items first (in rule order), then NPCs, so a creature never starts inside a rock,
+  //    tree or wall that a later rule placed on its tile.
+  const isNpcRule = (r) => r.type === 'npc' || (r.type === 'scatter' && r.kind === 'npc');
+  const npcOccupied = new Set();
+  for (const pass of [false, true]) {
+    for (const r of rules) {
+      if (isNpcRule(r) !== pass) continue;
+      try { resolveSpawn(game, world, r, seed, npcOccupied); } catch (e) { console.error('[map] spawn rule failed', r, e); }
+    }
   }
   return world;
 }
+
+/** Can an NPC of `size` stand with its top-left (north-west) corner on (x, y)? Walkable and not taken. */
+function npcFits(world, x, y, size, occupied) {
+  for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) {
+    if (!world.isWalkable(x + dx, y + dy)) return false;
+    if (occupied.has(world.idx(x + dx, y + dy))) return false;
+  }
+  return true;
+}
+function occupy(world, x, y, size, occupied) {
+  for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) if (world.inBounds(x + dx, y + dy)) occupied.add(world.idx(x + dx, y + dy));
+}
+/** Nearest tile (spiral, Chebyshev radius <= maxR) where the NPC fits; null if none. */
+function nearestNpcTile(world, x, y, size, occupied, maxR = 5) {
+  if (npcFits(world, x, y, size, occupied)) return [x, y];
+  for (let r = 1; r <= maxR; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      if (npcFits(world, x + dx, y + dy, size, occupied)) return [x + dx, y + dy];
+    }
+  }
+  return null;
+}
+
+/** Walk-over decoration without options (grass tufts, lily pads, pebbles...). */
+const isDecor = (o) => !o.blocks && !o.def.options?.length;
 
 function placeObject(game, world, id, x, y, opts = {}) {
   if (!getObject(id)) { console.warn(`[map] unknown object ${id}`); return null; }
@@ -250,15 +282,21 @@ function placeObject(game, world, id, x, y, opts = {}) {
   return game.spawnObject(id, x, y, opts);
 }
 
-function resolveSpawn(game, world, r, seed) {
+function resolveSpawn(game, world, r, seed, npcOccupied = new Set()) {
   switch (r.type) {
     case 'object':
       placeObject(game, world, r.id, r.x, r.y, { rot: r.rot, w: r.w, h: r.h, force: r.force ?? true });
       break;
     case 'npc':
-      if (!getNpc(r.id)) { console.warn(`[map] unknown npc ${r.id}`); break; }
-      game.spawnNpc(r.id, r.x, r.y, { wander: r.wander });
+    {
+      const def = getNpc(r.id);
+      if (!def) { console.warn(`[map] unknown npc ${r.id}`); break; }
+      const size = def.size || 1;
+      const [nx, ny] = nearestNpcTile(world, r.x, r.y, size, npcOccupied) || [r.x, r.y];
+      occupy(world, nx, ny, size, npcOccupied);
+      game.spawnNpc(r.id, nx, ny, { wander: r.wander });
       break;
+    }
     case 'item':
       if (!getItem(r.id)) { console.warn(`[map] unknown item ${r.id}`); break; }
       game.spawnGroundItem(r.id, r.qty || 1, r.x, r.y, { permanent: true, respawnTicks: r.respawnTicks ?? 50 });
@@ -305,14 +343,21 @@ function resolveSpawn(game, world, r, seed) {
       const spacing = r.spacing ?? 1;
       const kind = r.kind || 'object';
       let placed = 0;
-      for (let tries = 0; tries < count * 25 && placed < count; tries++) {
+      // sparse targets (water edges in a big rect, clearings in a dense forest) need more attempts
+      const maxTries = Math.max(count * 25, Math.min(area * 2, 6000));
+      for (let tries = 0; tries < maxTries && placed < count; tries++) {
         const x = x0 + Math.floor(rng() * (x1 - x0 + 1));
         const y = y0 + Math.floor(rng() * (y1 - y0 + 1));
         const i = world.idx(x, y);
         if (r.water) {
           // water tiles with a walkable cardinal neighbour (fishing spots etc.)
-          if (!world.isWater(x, y) || world.objectsAt(x, y).length) continue;
+          if (!world.isWater(x, y) || world.objectsAt(x, y).some((o) => !isDecor(o))) continue; // lily pads are fine
           if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => world.isWalkable(x + dx, y + dy))) continue;
+        } else if (kind === 'npc') {
+          // creatures may roam towns, roads and floors (noScatter only keeps *scenery* off those tiles)
+          if (!world.isWalkable(x, y)) continue;
+          if ((world.flags[i] & FLAG_INDOORS) && !r.indoors) continue; // not inside houses unless asked
+          if (allowed && !allowed.has(world.terrain[i])) continue;
         } else {
           if (!world.isWalkable(x, y)) continue;
           if (world.flags[i] & FLAG_NO_SCATTER) continue;
@@ -323,18 +368,30 @@ function resolveSpawn(game, world, r, seed) {
         let roll = rng() * totalW, pick = ids[0].id;
         for (const e of ids) { roll -= e.weight ?? 1; if (roll < 0) { pick = e.id; break; } }
         if (kind === 'npc') {
-          game.spawnNpc(pick, x, y, { wander: r.wander });
-          placed++;
+          const size = getNpc(pick)?.size || 1;
+          if (!npcFits(world, x, y, size, npcOccupied)) continue;
+          occupy(world, x, y, size, npcOccupied);
+          if (game.spawnNpc(pick, x, y, { wander: r.wander })) placed++;
           continue;
         }
+        // Real scenery (resources, trees, interactive things) ignores walk-over decoration (grass tufts, pebbles,
+        // lily pads...) when checking its spacing, and clears it from its own footprint; decoration keeps apart
+        // from everything.
+        const pdef = getObject(pick);
+        const pickIsDecor = !pdef || isDecor({ blocks: pdef.blocks, def: pdef });
         let clear = true;
         for (let dy = -spacing; dy <= spacing && clear; dy++) for (let dx = -spacing; dx <= spacing; dx++) {
           if (!world.inBounds(x + dx, y + dy)) continue;
-          if (world.objectsAt(x + dx, y + dy).length) { clear = false; break; }
+          if (world.objectsAt(x + dx, y + dy).some((o) => pickIsDecor || !isDecor(o))) { clear = false; break; }
         }
         if (!clear) continue;
+        if (!pickIsDecor) {
+          const [fw, fh] = pdef.size || [1, 1];
+          for (let dy = 0; dy < fh; dy++) for (let dx = 0; dx < fw; dx++) for (const o of world.objectsAt(x + dx, y + dy)) if (isDecor(o)) game.removeObject(o);
+        }
         if (placeObject(game, world, pick, x, y, { rot: Math.floor(rng() * 4) })) placed++;
       }
+      r._placed = placed; // (debug: compare with the requested count)
       break;
     }
     default:

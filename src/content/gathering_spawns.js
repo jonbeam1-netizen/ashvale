@@ -1,25 +1,10 @@
 // Placement of every gathering resource: trees, rocks, essence, fishing spots, hunter creatures,
 // farming patches and a few free tool spawns. OWNER: agent B.
 //
-// Agent B owns resource placement. The Phase-1 map (map.js) placed a few *pure* resource scatters
-// (quarry rocks, fishing spots, weepwood/ironbark/starwood trees); those legacy rules are dropped here
-// so nodes are not doubled. Mixed forest scatters (normal/birch/redleaf + pines) are kept as forest
-// dressing.
+// All gathering resources are placed here (map.js only keeps mixed forest dressing: normal/birch/redleaf
+// trees and pines).
 
-import { registerSpawn as spawn, registerPaint as paint, getSpawns } from '../core/registry.js';
-
-// ---- drop legacy pure-resource scatters registered by map.js -----------------------------------------
-const RESOURCE = /^(rock_|fishing_spot_|tree_weepwood$|tree_ironbark$|tree_starwood$|pale_essence)/;
-{
-  const rules = getSpawns();
-  for (let i = rules.length - 1; i >= 0; i--) {
-    const r = rules[i];
-    if (r.type === 'scatter' && (r.kind || 'object') === 'object') {
-      const ids = (r.ids || [r.id]).map((e) => (typeof e === 'string' ? e : e.id));
-      if (ids.length && ids.every((id) => RESOURCE.test(id))) rules.splice(i, 1);
-    } else if (r.type === 'object' && RESOURCE.test(r.id || '')) rules.splice(i, 1);
-  }
-}
+import { registerSpawn as spawn, registerPaint as paint } from '../core/registry.js';
 
 const scatter = (ids, opts) => spawn({ type: 'scatter', ids, ...opts });
 const npcs = (id, opts) => spawn({ type: 'scatter', kind: 'npc', ids: [id], ...opts });
@@ -28,19 +13,19 @@ const W = (id, weight) => ({ id, weight });
 // =================================================================================================
 // Trees (normal / birch / redleaf forest scatter lives in map.js)
 // =================================================================================================
-scatter(['tree_ironbark'], { rect: [50, 112, 72, 165], count: 5, seed: 901, spacing: 2 });          // deep Thornwood
-scatter(['tree_starwood'], { rect: [52, 140, 72, 168], count: 2, seed: 902, spacing: 3 });          // Thornwood glade
+scatter(['tree_ironbark'], { rect: [50, 112, 72, 165], count: 5, seed: 901, spacing: 1 });          // deep Thornwood
+scatter(['tree_starwood'], { rect: [52, 140, 72, 168], count: 2, seed: 902, spacing: 1 });          // Thornwood glade
 scatter(['tree_weepwood'], { rect: [130, 104, 162, 136], circle: [146, 120, 13], count: 10, seed: 903 }); // Mirrowmere shore
 scatter(['tree_weepwood'], { rect: [112, 96, 138, 178], count: 10, seed: 904, terrain: ['grass', 'sand', 'dark_grass'] }); // Silverrun banks
-scatter(['tree_redleaf'], { rect: [100, 88, 118, 106], count: 6, seed: 905, spacing: 2 });          // north of Brackenford
+scatter(['tree_redleaf'], { rect: [100, 88, 118, 106], count: 6, seed: 905, spacing: 1 });          // north of Brackenford
 scatter([W('tree_birch', 3), W('tree_normal', 2), W('tree_redleaf', 1)], { rect: [134, 104, 160, 110], count: 6, seed: 906 }); // below Highmarch
-scatter(['tree_ironbark'], { rect: [10, 14, 180, 44], count: 4, seed: 907, spacing: 2 });           // Wilderness
-scatter(['tree_starwood'], { rect: [60, 13, 140, 24], count: 2, seed: 908, spacing: 3 });           // deep Wilderness
+scatter(['tree_ironbark'], { rect: [10, 14, 180, 44], count: 4, seed: 907, spacing: 1 });           // Wilderness
+scatter(['tree_starwood'], { rect: [60, 13, 140, 24], count: 2, seed: 908, spacing: 1 });           // deep Wilderness
 // Faelwood (elven forest, far east) - the richest woodland
 const FAEL = ['glade_grass', 'dark_grass', 'flowers', 'moss', 'grass'];
-scatter(['tree_redleaf'], { rect: [241, 50, 287, 128], count: 10, seed: 909, spacing: 2, terrain: FAEL });
-scatter(['tree_ironbark'], { rect: [241, 50, 287, 128], count: 6, seed: 910, spacing: 2, terrain: FAEL });
-scatter(['tree_starwood'], { rect: [241, 100, 287, 128], count: 3, seed: 916, spacing: 3, terrain: FAEL });
+scatter(['tree_redleaf'], { rect: [241, 50, 287, 128], count: 10, seed: 909, spacing: 1, terrain: FAEL });
+scatter(['tree_ironbark'], { rect: [241, 50, 287, 128], count: 6, seed: 910, spacing: 1, terrain: FAEL });
+scatter(['tree_starwood'], { rect: [241, 100, 287, 128], count: 3, seed: 916, spacing: 1, terrain: FAEL });
 scatter([W('tree_normal', 3), W('tree_birch', 2)], { rect: [192, 111, 240, 133], count: 8, seed: 917, spacing: 2 }); // Bramblemoor
 scatter([W('tree_ironbark', 2), W('tree_starwood', 1)], { rect: [192, 12, 242, 47], count: 5, seed: 918, spacing: 0 }); // Blackbriar Wood (Wilderness)
 
@@ -51,6 +36,9 @@ scatter([W('tree_ironbark', 2), W('tree_starwood', 1)], { rect: [192, 12, 242, 4
 scatter([W('rock_copper', 9), W('rock_tin', 9), W('rock_iron', 8), W('rock_coal', 7), W('rock_clay', 4), W('rock_silver', 3), W('rock_gold', 2)],
   { rect: [30, 62, 58, 90], circle: [44, 76, 12], count: 42, seed: 7, terrain: ['stone'] });
 scatter(['pale_essence_rock'], { rect: [34, 64, 44, 72], count: 1, seed: 911, terrain: ['stone'], spacing: 1 });
+// Brackenford outcrop: a few starter rocks just north of town so new players can try mining/smithing early
+paint({ shape: 'circle', cx: 101, cy: 102.5, r: 3, terrain: 'stone', jitter: 0.6, noScatter: true });
+for (const [id, x, y] of [['rock_copper', 99, 102], ['rock_tin', 101, 101], ['rock_copper', 103, 102], ['rock_tin', 100, 104], ['rock_copper', 102, 104]]) spawn({ type: 'object', id, x, y });
 
 // Highmarch mine: rocky shelf south-east of Highmarch against the mountains
 paint({ shape: 'circle', cx: 171, cy: 116, r: 8, terrain: 'stone', jitter: 2, raise: 0.6, falloff: 3, only: ['grass', 'dark_grass', 'flowers'] });
@@ -64,7 +52,7 @@ scatter([W('rock_emberite', 4), W('rock_azurium', 2), W('rock_verdite', 3), W('r
 scatter([W('rock_coal', 3), W('rock_duskite', 2), W('rock_iron', 2)], { rect: [24, 30, 36, 42], count: 10, seed: 914 });
 
 // Greyspine foothills: a few common ores on the shelves
-scatter([W('rock_copper', 2), W('rock_tin', 2), W('rock_iron', 3), W('rock_coal', 2)], { rect: [184, 96, 212, 110], count: 8, seed: 941, terrain: ['snow', 'gravel', 'stone'] });
+scatter([W('rock_copper', 2), W('rock_tin', 2), W('rock_iron', 3), W('rock_coal', 2)], { rect: [184, 88, 240, 114], count: 8, seed: 941, terrain: ['gravel', 'stone', 'heath'] });
 // Durnhold's Deep Seams (a no-scatter mining floor) and the narrow Hollowpick tunnels are filled at
 // runtime by systems/gathering.js with corridor-safe placement (rocks never block a passage).
 export const RUNTIME_ROCKS = [
@@ -89,7 +77,7 @@ scatter(['fishing_spot_net'], { rect: [136, 110, 156, 130], count: 2, seed: 923,
 scatter(['fishing_spot_lure'], { rect: [136, 110, 156, 130], count: 2, seed: 924, water: true });     // Mirrowmere
 scatter(['fishing_spot_net'], { rect: [46, 182, 112, 188], count: 4, seed: 925, water: true });       // Saltmarsh west
 scatter(['fishing_spot_cage'], { rect: [112, 182, 160, 188], count: 4, seed: 926, water: true });     // Saltmarsh
-scatter(['fishing_spot_deep'], { rect: [160, 182, 190, 188], count: 3, seed: 927, water: true });     // Saltmarsh east (deep water)
+scatter(['fishing_spot_deep'], { rect: [160, 194, 192, 202], count: 3, seed: 927, water: true });     // off the Gullhaven pier ends (deep water)
 scatter(['fishing_spot_swamp'], { rect: [80, 160, 106, 176], count: 3, seed: 928, water: true });     // Murkfen pools
 scatter(['fishing_spot_cage'], { rect: [156, 182, 192, 200], count: 3, seed: 929, water: true });     // Gullhaven piers
 scatter(['fishing_spot_net'], { rect: [156, 182, 192, 200], count: 2, seed: 930, water: true });      // Gullhaven piers
@@ -141,7 +129,7 @@ patch('tree', 151, 105); patch('herb', 156, 105);
 
 // =================================================================================================
 // Free tool spawns: basic farming tools at Haverly, hunter gear at the Thornwood edge.
-// (Fishing tackle and farming supplies are sold in agent D's shops.)
+// (All of these are also sold: hunter gear at Rowan's Bows and the general stores, farming tools at Haverly.)
 // =================================================================================================
 const item = (id, x, y, qty = 1, respawnTicks = 100) => spawn({ type: 'item', id, x, y, qty, respawnTicks });
 item('rake', 146, 152); item('seed_dibber', 147, 153); item('spade', 146, 156);

@@ -229,13 +229,16 @@ function searchNest({ player, slot, item }) {
 // =================================================================================================
 function placeRuntimeRocks() {
   const w = game.world;
+  // never drop a rock on a creature's spawn tile (spawn tiles are deterministic, so clients still agree)
+  const npcTiles = new Set();
+  for (const n of game.npcs.values()) for (let dy = 0; dy < (n.size || 1); dy++) for (let dx = 0; dx < (n.size || 1); dx++) npcTiles.add(`${n.spawnX + dx},${n.spawnY + dy}`);
   for (const rule of RUNTIME_ROCKS) {
     const rng = mulberry32(rule.seed * 7919 + 17);
     const [x0, y0, x1, y1] = rule.rect;
     const terrain = new Set(rule.terrain);
     const total = rule.ids.reduce((a, e) => a + e.weight, 0);
     const placed = [];
-    const open = (x, y) => w.isWalkable(x, y) && !w.objectsAt(x, y).length;
+    const open = (x, y) => w.isWalkable(x, y) && !w.objectsAt(x, y).length && !npcTiles.has(`${x},${y}`);
     for (let tries = 0; tries < rule.count * 60 && placed.length < rule.count; tries++) {
       const x = x0 + Math.floor(rng() * (x1 - x0 + 1)), y = y0 + Math.floor(rng() * (y1 - y0 + 1));
       let r = rng() * total, id = rule.ids[0].id;

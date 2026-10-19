@@ -10,9 +10,15 @@ const cache = new Map();
 const texCache = new Map();
 
 function adj(hex, f) {
+  // THREE.Color ignores (and warns about) alpha, so split `rgba(...)` colours and re-apply the alpha
+  let alpha = null;
+  const m = typeof hex === 'string' && hex.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i);
+  if (m) { hex = `rgb(${m[1]},${m[2]},${m[3]})`; if (m[4] != null) alpha = +m[4]; }
   const c = new THREE.Color(hex);
   if (f > 1) c.lerp(new THREE.Color('#ffffff'), Math.min(1, f - 1)); else c.multiplyScalar(f);
-  return '#' + c.getHexString();
+  if (alpha == null) return '#' + c.getHexString();
+  const h = c.getHex(); // sRGB
+  return `rgba(${(h >> 16) & 255},${(h >> 8) & 255},${h & 255},${alpha})`;
 }
 
 function grad(ctx, color, x0 = 4, y0 = 2, x1 = 32, y1 = 30) {

@@ -122,7 +122,7 @@ shopTalk('corrin', "Well, well. Someone brave enough to come out here. Buying or
 
 registerDialogue('villager', (ctx) => [
   { npc: ['Lovely weather today.', 'Have you seen the wilderness ditch? Stay south of it if you value your hide.', 'The forge by the square is always warm.',
-    'They say a goblin warlord has taken over the camp east of town.', 'My cousin went into Gloomhollow once. Only once.'][ctx.npc.uid % 5] },
+    'They say a goblin warlord has built a war camp west of Thornwood. Stay well clear of it.', 'My cousin went into Gloomhollow once. Only once.'][ctx.npc.uid % 5] },
 ]);
 registerDialogue('farmer', (ctx) => [
   { npc: ['Mind the cows, they kick.', 'Boars have been at the turnips again.', 'A good harvest this year, if the crows leave us any.'][ctx.npc.uid % 3] },

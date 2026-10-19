@@ -218,7 +218,8 @@ export class SceneryRenderer {
   /** Hide whole chunk meshes beyond the fog (frustum culling alone keeps far chunks in view). */
   cullChunks() {
     const p = this.game.player;
-    const far = (this.rm.scene.fog?.far ?? 95) + SCENERY_CHUNK * 0.75;
+    // a chunk is drawn while any part of it can be closer than the fog's far plane (half a chunk = 16 tiles)
+    const far = (this.rm.scene.fog?.far ?? 95) + SCENERY_CHUNK * 0.5;
     for (const v of this.variants.values()) {
       if (!v.mesh) continue;
       v.mesh.visible = Math.abs(v.cx - p.x) < far && Math.abs(v.cy - p.y) < far;

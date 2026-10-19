@@ -326,10 +326,12 @@ boss({ id: 'corsair_captain', name: 'Captain Brinehook', examine: 'Captain of th
     equipment: { weapon: 'saltreaver_cutlass', head: { shape: 'coif', color: '#1a1a1a', trim: '#d8a830' }, cape: { shape: 'cape', color: '#8a1a1a', color2: '#d8a830' }, body: { shape: 'chainbody', color: '#3a2a20', trim: '#d8a830' }, feet: { shape: 'boots', color: '#1a1a1a' } } } });
 boss({ id: 'graven_king', name: 'The Graven King', examine: 'A golem crowned in the old quarry. The stone obeys him.', combatLevel: 95,
   attackStyle: 'crush', attackSpeed: 6, size: 2, slayerCategory: 'golems',
+  aggressive: false, // he sits in the quarry where beginners mine: only fights when challenged
   stats: { attack: 80, strength: 90, defence: 110, magic: 60, hitpoints: 200 }, bonuses: armour(120, 20, 160),
   attacks: [{ style: 'melee', maxHit: 17, weight: 3 }, { style: 'ranged', maxHit: 14, weight: 1, range: 8, projectileColor: '#8a857a', effect: 'aoe' }],
   model: { template: 'golem', scale: 1.5, colors: { skin: '#8a857a', top: '#7a756c', legs: '#6a655c' }, extras: { crown: '#d8b040', glowEyes: '#60e0ff', core: '#60e0ff' }, equipment: { weapon: 'graven_maul' } } });
 boss({ id: 'bog_matriarch', name: 'The Bog Matriarch', examine: 'Mother of every toad in Murkfen. She is enormous, and hungry.', combatLevel: 120,
+  aggroRange: 3, // the fen borders Brackenford and the coast road: she only notices you up close
   attackStyle: 'crush', attackSpeed: 5, size: 3, slayerCategory: 'toads',
   stats: { attack: 100, strength: 100, defence: 90, magic: 110, hitpoints: 260 }, bonuses: armour(50, 70, 50),
   attacks: [{ style: 'melee', maxHit: 20, weight: 2 }, { style: 'magic', maxHit: 18, weight: 2, range: 8, projectileColor: '#4ad0a0', effect: 'poison' }],

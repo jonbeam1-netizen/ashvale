@@ -3,7 +3,8 @@
 // Host World -> 6-char code (PeerJS id `ashvale-v1-<CODE>` on the public PeerJS cloud signalling server);
 // friends join with the code or an invite link (`?join=CODE`). Star topology: the host relays.
 // Shared: players (position/appearance/equipment/anim/hp/prayers...), public + private chat,
-// trading, PvP hits/loot/deaths. NOT shared: NPCs, resources, ground items (each client runs its own).
+// trading, PvP hits/loot/deaths/hitsplats/projectiles, and Wilderness ground items (host-authoritative,
+// net/shared.js). NOT shared: NPCs, resources, ground items outside the Wilderness (each client runs its own).
 //
 // game.net API (see also docs in ARCHITECTURE.md §11):
 //   connected, peerId, role ('host'|'joiner'|null), code, status
@@ -19,7 +20,8 @@ import { getItem } from '../core/registry.js';
 import { Session } from './session.js';
 import { TradeManager } from './trade.js';
 import { NetPanel } from './panel.js';
-import { cleanSnapshot, cleanText, cleanHit, cleanLoot, cleanPayload, cleanId, int, isObj } from './protocol.js';
+import { SharedGround } from './shared.js';
+import { cleanSnapshot, cleanText, cleanHit, cleanLoot, cleanPayload, cleanId, cleanFx, cleanSplat, int, isObj } from './protocol.js';
 
 const KEEPALIVE_TICKS = 10; // resend an unchanged snapshot this often
 
@@ -28,6 +30,7 @@ class NetManager {
     this.game = game;
     this.deaths = 0;
     this.fxId = 0;
+    this.curHid = null;
     this.lastAnim = null;
     this.lastSent = '';
     this.lastSentTick = -999;
@@ -44,6 +47,7 @@ class NetManager {
       ended: (reason) => this.onEnded(reason),
     });
     this.trade = new TradeManager(this);
+    this.shared = new SharedGround(this);
     this.panel = null;
     this.api = this.makeApi();
     this.wire();
@@ -130,6 +134,26 @@ class NetManager {
       if (this.connected) this.session.broadcast('death', { n: this.deaths, killer: killer?.type === 'remote' ? killer.peerId : null });
     });
 
+    // visual effects involving our player (projectiles we fire, sparkles / teleports / level-ups on us,
+    // splashes on the remote we target) are mirrored on the other clients
+    ev.on('effect', (e) => {
+      if (!this.connected || e.fromNet) return;
+      const msg = this.fxMessage(e);
+      if (msg) this.session.broadcast('fx', msg);
+    });
+
+    // our client is authoritative for our HP: every hitsplat we take is mirrored to the others
+    // (the attacker shows it instead of its prediction - see game.pvp.confirmHit)
+    ev.on('damage', (e) => {
+      if (e.target !== g.player || !this.connected) return;
+      const msg = {
+        a: e.amount, t: e.amount > 0 ? e.splat || 'damage' : 'block', hp: g.player.hp, mhp: g.player.maxHp,
+        hid: this.curHid || undefined, src: e.source?.type === 'remote' ? e.source.peerId : undefined,
+      };
+      if (this.curHid) this.curHid = null;
+      this.session.broadcast('splat', msg);
+    });
+
     // remote-player menu: trade
     g.interactions.onPlayer('Trade with', ({ target }) => {
       if (!this.connected || target?.type !== 'remote') { g.message('That player is not connected.'); return; }
@@ -178,6 +202,9 @@ class NetManager {
     const tdef = tool && getItem(tool);
     if (tdef && (tdef.slot === 'weapon' || tdef.model?.shape)) s.equipment = { ...s.equipment, weapon: tool };
     s.deathCount = this.deaths;
+    // agility: collision-free forced walking (logs, ledges...); the height offset (`elevation`) is added by
+    // systems/agility.js through the 'snapshot' event
+    if (p.forced) s.forced = true;
     return s;
   }
 
@@ -188,6 +215,7 @@ class NetManager {
     if (isNew && rp) {
       this.game.message(initial ? `${rp.name} is in this world.` : `<col=00a000>${rp.name} has joined the world.</col>`);
       this.game.events.emit('net:join', { remote: rp });
+      if (!initial) this.shared.syncTo(id);
     }
     this.panel?.update();
   }
@@ -199,6 +227,7 @@ class NetManager {
     if (g.player.following === rp) g.player.following = null;
     if (g.player.combatTarget === rp) g.player.combatTarget = null;
     g.removeRemotePlayer(id);
+    this.shared.onPlayerLeave(id);
     const why = reason && reason !== 'left' ? ` (${reason})` : '';
     g.message(`<col=a00000>${rp.name} has left the world${why}.</col>`);
     g.events.emit('net:leave', { remote: rp, reason });
@@ -219,11 +248,33 @@ class NetManager {
       rp._fxId = s.fx.id;
     }
     if (typeof s.faceAngle === 'number') rp.netFace = s.faceAngle;
+    if (!('elevation' in s)) rp.extra.elevation = 0;
+    // forced walks and raised platforms (non-walkable tiles) can't be path-found: walk straight there
+    const t = rp.netTarget;
+    this.applyForced(rp, !!s.forced || (!!t && !g.world.isWalkable(t.x, t.y)));
     if (s.deathCount != null) {
       if (rp._deaths == null) rp._deaths = s.deathCount;
       else if (s.deathCount > rp._deaths) { rp._deaths = s.deathCount; this.remoteDied(rp, null); }
     }
     return rp;
+  }
+
+  /** Forced walks (agility) ignore collision: walk the remote in a straight line instead of path-finding. */
+  applyForced(rp, forced) {
+    const t = rp.netTarget;
+    if (!forced) {
+      if (rp.forced) { rp.forced = false; rp._pathTarget = null; }
+      return;
+    }
+    rp.forced = true;
+    if (!t) return;
+    const d = Math.max(Math.abs(t.x - rp.x), Math.abs(t.y - rp.y));
+    if (d === 0 || d > 12) return;
+    const path = [];
+    let x = rp.x, y = rp.y;
+    while (x !== t.x || y !== t.y) { x += Math.sign(t.x - x); y += Math.sign(t.y - y); path.push({ x, y }); }
+    rp.path = path;
+    rp._pathTarget = `${t.x},${t.y}`;
   }
 
   remoteDied(rp, killerPeerId) {
@@ -234,6 +285,7 @@ class NetManager {
   onEnded(reason) {
     const g = this.game;
     this.trade.reset();
+    this.shared.onEnded();
     this.panel?.clearToasts();
     for (const id of [...g.remotePlayers.keys()]) {
       const rp = g.remotePlayers.get(id);
@@ -249,7 +301,7 @@ class NetManager {
     const s = this.session;
     if (s.status === 'hosting') this.game.message(`<col=00a000>You are hosting world ${s.code}. Friends can join with that code (Multiplayer tab).</col>`);
     if (s.status === 'joined') this.game.message(`<col=00a000>You have joined world ${s.code}.</col>`);
-    if (s.status === 'hosting' || s.status === 'joined') this.lastSent = '';
+    if (s.status === 'hosting' || s.status === 'joined') { this.lastSent = ''; this.shared.onConnected(); }
     this.panel?.update();
     this.game.events.emit('net:status', { status: s.status, error: s.error });
   }
@@ -271,9 +323,80 @@ class NetManager {
         if (rp._deaths == null || n > rp._deaths) { rp._deaths = n; this.remoteDied(rp, cleanId(data.killer)); }
         break;
       }
+      case 'fx': this.applyFx(rp, data); break;
+      case 'gadd': case 'gdel': case 'gset': this.shared.onBroadcast(from, kind, data); break;
+      case 'splat': this.applySplat(rp, data); break;
       case 'x': this.emitCustom(from, rp, data); break;
       default: break;
     }
+  }
+
+  // ---- mirrored effects & hitsplats -----------------------------------------------------------------
+  fxRef(ent) {
+    const g = this.game;
+    if (!ent) return null;
+    if (ent === g.player) return { p: this.session.myId };
+    if (ent.type === 'remote') return ent.peerId ? { p: ent.peerId } : null;
+    if (typeof ent.x === 'number' && typeof ent.y === 'number') {
+      const sz = ent.size || 1;
+      return { t: [Math.floor(ent.x + (sz - 1) / 2), Math.floor(ent.y + (sz - 1) / 2)] };
+    }
+    return null;
+  }
+
+  fxMessage(e) {
+    const g = this.game, at = e.at, to = e.to;
+    const mine = at === g.player;
+    // only effects that are about players are mirrored (NPCs are local to each client)
+    if (e.kind === 'projectile') { if (!mine || !to) return null; }
+    else if (!(mine || at?.type === 'remote')) return null;
+    const msg = { k: e.kind, at: this.fxRef(at) };
+    if (to) msg.to = this.fxRef(to);
+    if (!msg.at || (to && !msg.to)) return null;
+    if (typeof e.color === 'number') msg.c = e.color;
+    if (typeof e.ms === 'number') msg.ms = Math.round(e.ms);
+    if (typeof e.size === 'number') msg.sz = e.size;
+    if (typeof e.arc === 'number') msg.arc = e.arc;
+    return msg;
+  }
+
+  resolveRef(r) {
+    const g = this.game;
+    if (r.p) return r.p === this.session.myId ? g.player : g.getRemotePlayer(r.p);
+    return { x: r.t[0], y: r.t[1] };
+  }
+
+  applyFx(rp, data) {
+    const d = cleanFx(data, this.game.world);
+    if (!d) return;
+    const at = this.resolveRef(d.at), to = d.to ? this.resolveRef(d.to) : null;
+    if (!at || (d.to && !to)) return;
+    const me = this.game.player;
+    if (Math.max(Math.abs(at.x - me.x), Math.abs(at.y - me.y)) > 40) return; // out of sight
+    const o = { fromNet: true };
+    if (to) o.to = to;
+    if (d.c != null) o.color = d.c;
+    if (d.ms != null) o.ms = d.ms;
+    if (d.sz != null) o.size = d.sz;
+    if (d.arc != null) o.arc = d.arc;
+    this.game.spawnEffect(d.k, at, o);
+  }
+
+  applySplat(rp, data) {
+    const d = cleanSplat(data);
+    if (!d) return;
+    const g = this.game;
+    const mine = d.hid != null && g.pvp?.confirmHit?.(d.hid);
+    if (d.none) return;
+    if (d.hp != null) rp.hp = d.hp;
+    if (d.mhp != null) rp.maxHp = d.mhp;
+    // a hit of ours that we already drew ourselves (sent without an id, e.g. Last Rites, or whose answer came
+    // after the prediction timed out) must not show twice
+    if (!mine && d.src && d.src === this.session.myId) return;
+    rp.hitsplats.push({ amount: d.a, type: d.t, time: performance.now() });
+    if (rp.hitsplats.length > 6) rp.hitsplats.shift();
+    rp.hpBarUntil = performance.now() + 6000;
+    rp.lastAttackedTick = g.tickCount;
   }
 
   onDirect(from, kind, data) {
@@ -283,6 +406,8 @@ class NetManager {
     switch (kind) {
       case 'hit': this.receiveHit(rp, data); break;
       case 'loot': this.receiveLoot(rp, data); break;
+      case 'splat': this.applySplat(rp, data); break;
+      case 'gadd': case 'gtake': case 'gqty': case 'gdel': case 'ggrant': case 'gdeny': case 'gsync': this.shared.onDirect(from, kind, data); break;
       case 'trade': this.trade.onMessage(from, data); break;
       case 'pm': {
         const text = isObj(data) ? cleanText(data.text, 80) : '';
@@ -317,7 +442,11 @@ class NetManager {
     const d = cleanHit(data);
     if (!d) return;
     if (typeof g.pvp?.receiveHit === 'function') {
+      const hid = typeof d.hid === 'string' && d.hid.length <= 40 ? d.hid : null;
+      this.curHid = hid; // picked up by the 'damage' listener -> the splat answers this hit
       try { g.pvp.receiveHit(rp, d); } catch (e) { console.error('[net] pvp.receiveHit threw', e); }
+      if (hid && this.curHid === hid) this.session.sendDirect(rp.peerId, 'splat', { hid, none: true }); // no damage applied (dead...)
+      this.curHid = null;
       return;
     }
     // fallback (no PvP system loaded): apply the hit authoritatively, only inside the Wilderness

@@ -36,6 +36,6 @@ registerItem({ id: 'traveller_cape', name: "Traveller's cape", slot: 'cape', val
 
 // Items given to a brand-new character (read by main.js).
 registerData('starter', 'kit', [
-  { id: 'bronze_axe', qty: 1 }, { id: 'bronze_pickaxe', qty: 1 }, { id: 'small_net', qty: 1 }, { id: 'tinderbox', qty: 1 },
+  { id: 'bronze_axe', qty: 1 }, { id: 'bronze_pickaxe', qty: 1 }, { id: 'small_net', qty: 1 }, { id: 'tinderbox', qty: 1 }, { id: 'hammer', qty: 1 },
   { id: 'bronze_dagger', qty: 1 }, { id: 'wooden_shield', qty: 1 }, { id: 'bread', qty: 3 }, { id: 'coins', qty: 25 },
 ]);

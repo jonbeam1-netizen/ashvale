@@ -182,7 +182,9 @@ export function init(g) {
         const q = qtyOf(l.qty);
         game.giveItem(l.id, q, player);
         player.skills.addXp('thieving', d.xp);
-        game.message(`You manage to pick the lock and find ${l.id === 'coins' ? `${q.toLocaleString()} coins` : `${q > 1 ? `${q} x ` : ''}${getItem(l.id).name.toLowerCase()}`} inside.`);
+        const nm = getItem(l.id).name.toLowerCase();
+        const what = l.id === 'coins' ? `${q.toLocaleString()} coins` : q > 1 ? `${q} x ${nm}` : `${/^[aeiou]/.test(nm) ? 'an' : 'a'} ${nm}`;
+        game.message(`You manage to pick the lock and find ${what} inside.`);
         target.state.disarmed = 0;
         game.replaceObject(target, d.openId, d.respawnTicks ?? 20);
         game.events.emit('thieving:chest', { player, chest: target.id });

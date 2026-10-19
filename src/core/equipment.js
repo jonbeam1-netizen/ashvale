@@ -42,6 +42,10 @@ export class Equipment {
   fromJSON(o) {
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
     if (!o) return;
-    for (const s of EQUIP_SLOTS) if (o[s] && getItem(o[s][0])) this.slots[s] = { id: o[s][0], qty: o[s][1] };
+    for (const s of EQUIP_SLOTS) {
+      const def = Array.isArray(o[s]) && getItem(o[s][0]);
+      const qty = Math.max(1, Math.floor(Number(o[s]?.[1])) || 1);
+      if (def && def.slot === s) this.slots[s] = { id: o[s][0], qty };
+    }
   }
 }

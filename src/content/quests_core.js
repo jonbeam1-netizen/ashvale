@@ -71,7 +71,8 @@ registerDialogue('town_guide', (ctx) => {
     { label: 'has', player: 'Here it is! A bit muddy, I\'m afraid.' },
     { npc: "Muddy, chewed and... is that goblin drawing in the margin? Oh, who cares - it's my ledger!" },
     { action: ({ game: g }) => { g.quests.complete('lost_ledger'); } },
-    { npc: "You're a lifesaver. Please, take this for your trouble.", end: true },
+    { npc: "You're a lifesaver. Please, take this for your trouble." },
+    { npc: 'If you want more work, Bram the forester is fretting about fires in Thornwood - you will find him on the road just west of town. The bank is north of the square, if your pack gets heavy.', end: true },
   ];
   return [
     { npc: 'Welcome to Brackenford, traveller! I am Mira, the town guide.' },
@@ -107,8 +108,9 @@ for (const [id, x, y] of STUMPS) {
   spawnObj(id, x, y);
 }
 registerNpc({
-  id: 'goblin_firebug', name: 'Goblin firebug', examine: 'A goblin who really, really likes fire.', combatLevel: 9, options: ['Attack'], aggressive: true, aggroRange: 3,
-  stats: { attack: 8, strength: 8, defence: 6, hitpoints: 14 }, maxHit: 2, attackStyle: 'crush', dropTable: 'goblin', respawnTicks: 30, wanderRadius: 3, slayerCategory: 'goblins',
+  // a Novice-quest fight: beatable by a fresh character with the starter dagger and some bread
+  id: 'goblin_firebug', name: 'Goblin firebug', examine: 'A goblin who really, really likes fire.', combatLevel: 5, options: ['Attack'], aggressive: true, aggroRange: 2,
+  stats: { attack: 3, strength: 3, defence: 2, hitpoints: 8 }, maxHit: 1, attackStyle: 'crush', dropTable: 'goblin', respawnTicks: 30, wanderRadius: 3, slayerCategory: 'goblins',
   model: { template: 'goblin', colors: { skin: '#7a8a2a' }, equipment: { weapon: { shape: 'mace', color: '#ff8a20' } }, extras: { glowEyes: '#ff8a20' } },
 });
 questObject({ id: 'firebug_fire', name: 'Campfire', examine: 'Far too big for a campfire.', blocks: true, model: { template: 'fire' } });
@@ -123,7 +125,7 @@ registerQuest({
   rewards: ['1 Quest Point', '800 Woodcutting XP', '500 Firemaking XP', 'An iron axe'],
   onComplete: ({ game, player }) => { take(game, 'firebug_torch'); take(game, 'charred_tinder', 3); xp(player, { woodcutting: 800, firemaking: 500 }); give(game, 'iron_axe'); },
   journal: (stage, { game }) => {
-    if (!stage) return [`I can start this quest by speaking to ${red('Bram Tolliver')} at the eastern edge of ${red('Thornwood')}.`];
+    if (!stage) return [`I can start this quest by speaking to ${red('Bram Tolliver')} at the eastern edge of ${red('Thornwood')}.`, 'I may have to fight a few goblins, so I should bring some food.'];
     if (stage >= 100) return [strike('Bram asked me to find out who was setting fires in Thornwood.'), strike('I found charred tinder and tracked down the goblin firebugs.'), '', COMPLETE];
     const out = [strike('Bram asked me to find out who was setting fires in Thornwood.')];
     if (stage === 10) {

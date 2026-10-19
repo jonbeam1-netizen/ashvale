@@ -35,8 +35,29 @@
     <div id="context-menu"></div>
     <div id="tooltip"></div>
     <div id="charcreate"></div>
-    <div id="loading"><div class="loading-box"><div class="loading-title">Ashvale</div><div class="loading-text">Loading world...</div><noscript>Ashvale needs JavaScript.</noscript></div></div>
+    <div id="loading"><div class="loading-box"><div class="loading-title">Ashvale</div><div class="loading-bar"><div class="loading-fill"></div></div><div class="loading-text">Loading game files...</div><noscript>Ashvale needs JavaScript.</noscript></div></div>
   </div>
+  <script>
+    // Boot progress: counts the ES modules as they arrive (no build step, so ~125 small files), then main.js
+    // reports the remaining phases through window.ashvaleLoading(text, fraction).
+    (function () {
+      var EXPECTED = 125, seen = 0, done = false, fill = null, text = null;
+      function els() { fill = fill || document.querySelector('#loading .loading-fill'); text = text || document.querySelector('#loading .loading-text'); }
+      window.ashvaleLoading = function (msg, frac) {
+        els();
+        if (msg != null && text) text.textContent = msg;
+        if (frac != null && fill) fill.style.width = Math.round(Math.max(0, Math.min(1, frac)) * 100) + '%';
+        if (frac >= 1) done = true;
+      };
+      try {
+        new PerformanceObserver(function (list) {
+          if (done) return;
+          list.getEntries().forEach(function (e) { if (/\/src\/|three|peerjs/.test(e.name)) seen++; });
+          window.ashvaleLoading('Loading game files... (' + seen + ')', 0.85 * Math.min(1, seen / EXPECTED));
+        }).observe({ type: 'resource', buffered: true });
+      } catch (e) { /* old browser: text only */ }
+    })();
+  </script>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

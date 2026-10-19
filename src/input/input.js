@@ -18,6 +18,71 @@ export class InputManager {
     this.canvas.addEventListener('mousemove', (e) => { this.mouse = { x: e.clientX, y: e.clientY, inside: true }; });
     this.canvas.addEventListener('mouseleave', () => { this.mouse.inside = false; this.game.ui.setHoverText(''); });
     window.addEventListener('keydown', (e) => this.onKey(e));
+    this.initTouch();
+  }
+
+  // ---- touch screens: tap = left-click, press-and-hold = right-click menu, one-finger drag = rotate the
+  //      camera, two-finger pinch = zoom. (Panels/menus are DOM and get the browser's synthesized clicks.)
+  initTouch() {
+    const c = this.canvas;
+    c.style.touchAction = 'none';
+    this.touch = null;
+    this.touchTimer = 0;
+    const opts = { passive: false };
+    c.addEventListener('touchstart', (e) => this.onTouchStart(e), opts);
+    c.addEventListener('touchmove', (e) => this.onTouchMove(e), opts);
+    c.addEventListener('touchend', (e) => this.onTouchEnd(e), opts);
+    c.addEventListener('touchcancel', () => { clearTimeout(this.touchTimer); this.touch = null; }, opts);
+  }
+
+  onTouchStart(e) {
+    e.preventDefault(); // no emulated mouse events / page zoom on the 3D view
+    const ts = e.touches;
+    clearTimeout(this.touchTimer);
+    if (ts.length === 1) {
+      const t = ts[0];
+      this.touch = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, moved: false, long: false };
+      this.touchTimer = setTimeout(() => {
+        const cur = this.touch;
+        if (!cur || cur.moved || cur.pinch) return;
+        cur.long = true;
+        this.onDown({ button: 2, clientX: cur.x, clientY: cur.y });
+      }, 450);
+    } else if (ts.length === 2) {
+      this.touch = { pinch: Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY), moved: true };
+    }
+  }
+
+  onTouchMove(e) {
+    e.preventDefault();
+    const t = this.touch;
+    if (!t) return;
+    const cam = this.game.renderer.cameraCtl;
+    const ts = e.touches;
+    if (ts.length === 2 && t.pinch) {
+      const d = Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+      if (d > 0) cam.targetDist = Math.max(cam.minDist, Math.min(cam.maxDist, cam.targetDist * (t.pinch / d)));
+      t.pinch = d;
+      return;
+    }
+    if (ts.length !== 1 || t.pinch) return;
+    const p = ts[0];
+    if (!t.moved && Math.hypot(p.clientX - t.x, p.clientY - t.y) > 12) { t.moved = true; clearTimeout(this.touchTimer); }
+    if (t.moved && !t.long) {
+      cam.yaw -= (p.clientX - t.lx) * 0.008;
+      cam.pitch = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + (p.clientY - t.ly) * 0.006));
+    }
+    t.lx = p.clientX; t.ly = p.clientY;
+  }
+
+  onTouchEnd(e) {
+    e.preventDefault();
+    if (e.touches.length) return; // other fingers still down
+    clearTimeout(this.touchTimer);
+    const t = this.touch;
+    this.touch = null;
+    if (!t || t.moved || t.long || t.pinch) return;
+    this.onDown({ button: 0, clientX: t.x, clientY: t.y });
   }
 
   onKey(e) {

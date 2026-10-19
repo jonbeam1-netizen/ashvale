@@ -53,11 +53,20 @@ triggers **auto-retaliate** (if on and the attacker is attackable) and death.
 
 ### `game.pvp.receiveLoot(fromRemote, {items: [{id, qty}], x, y})`
 Call on the **killer's** client when the victim sends its loot. Spawns the items as ground items at
-`(x, y)` visible only to the local player (1 hour), with a chat message.
+`(x, y)` (they last 1 hour; only the killer sees them for the first minute, then - being Wilderness items -
+they are shared with every player in the world, see `docs/NET_SHARED_WORLD.md`), with a chat message.
 
 ### `game.pvp.onRemoteDeath(remote, {killerPeerId}?)`
 Call when a remote player reports its death. Stops attacking it and prints
 "You have defeated <name>!" if we were fighting it (or `killerPeerId === game.net.peerId`).
+
+### `game.pvp.confirmHit(hid) -> bool`
+Call on the **attacker's** client when the victim's `splat` message carries the `hid` of one of our hits
+(`landHit` adds `hid` to every payload). The predicted splat is then dropped in favour of the victim's real
+one; without an answer within 1.5 s the prediction is shown (see `docs/NET_SHARED_WORLD.md` §1).
+
+### `game.pvp.bracket(remote) -> {ok, reason}`
+Wilderness + level-bracket rule only. The `Attack` menu option is offered only when this is ok.
 
 ### `game.pvp.canAttack(remote) -> {ok, reason}`
 Both players in the Wilderness; combat-level difference ≤ the **lower** of the two Wilderness

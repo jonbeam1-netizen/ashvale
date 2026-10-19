@@ -124,11 +124,13 @@ export class Game {
       p.playTime++;
     }
 
-    // npcs
+    // npcs (an NPC the player is walking over to talk/trade with waits instead of wandering off)
+    const approaching = p.interaction?.target?.type === 'npc' && p.interaction.option?.toLowerCase() !== 'attack' ? p.interaction.target : null;
     for (const npc of this.npcs.values()) {
       if (npc.dead || npc.hidden) continue;
       if (npc.action) this.actions.process(npc);
-      if (!npc.combatTarget && !npc.path.length && !npc.talkingTo && npc.wanderRadius > 0 && Math.random() < 0.08) this.wander(npc);
+      if (npc === approaching && !npc.combatTarget && !npc.forced) npc.path = [];
+      if (!npc.combatTarget && !npc.path.length && !npc.talkingTo && npc !== approaching && npc.wanderRadius > 0 && Math.random() < 0.08) this.wander(npc);
       this.stepAlongPath(npc, 1);
     }
 
@@ -185,8 +187,19 @@ export class Game {
 
   /** Instantly moves an entity. */
   teleport(entity, x, y) {
+    const far = Math.max(Math.abs(entity.x - x), Math.abs(entity.y - y)) > 1;
     entity.setPosition(x, y);
     entity.interaction = null;
+    entity.path = [];
+    entity.following = null;
+    if (far) {
+      // a real relocation: forget whatever we were fighting/doing at the old spot
+      entity.combatTarget = null;
+      entity.faceTarget = null;
+      if (entity.action && !entity.forced) this.actions.stop(entity, 'teleport');
+      for (const n of this.npcs.values()) if (n.combatTarget === entity && Math.max(Math.abs(n.x - x), Math.abs(n.y - y)) > 16) n.combatTarget = null;
+    }
+    if (entity.elevation) entity.elevation = 0;
     if (entity === this.player) { entity.destination = null; this.checkArea(); }
     this.events.emit('teleport', { entity, x, y });
   }

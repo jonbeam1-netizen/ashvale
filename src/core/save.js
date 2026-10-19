@@ -3,6 +3,7 @@
 // to 'save' (payload.data is the object being written) and 'load' (payload.data was read).
 
 import { SAVE_VERSION, MAX_RUN_ENERGY } from './constants.js';
+import { getWeaponType } from './registry.js';
 
 /** `?profile=<name>` selects a separate save slot (lets several tabs test without clobbering each other). */
 function profileSuffix() {
@@ -32,9 +33,13 @@ export function readSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    return migrate(JSON.parse(raw));
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('save is not an object');
+    return migrate(data);
   } catch (e) {
-    console.error('[save] failed to read save', e);
+    // unreadable save: keep a copy aside (never silently destroy progress) and start fresh
+    console.warn('[save] save data is unreadable; it was moved to', SAVE_KEY + '.broken', e);
+    try { localStorage.setItem(SAVE_KEY + '.broken', localStorage.getItem(SAVE_KEY)); localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
     return null;
   }
 }
@@ -78,23 +83,37 @@ export function saveGame(game) {
 
 export function applySave(game, data) {
   const p = game.player;
-  p.name = data.name || p.name;
-  p.appearance = { ...p.appearance, ...(data.appearance || {}) };
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+  const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+  p.name = typeof data.name === 'string' && data.name.trim() ? data.name.slice(0, 12) : p.name;
+  p.appearance = { ...p.appearance, ...(obj(data.appearance) || {}) };
   p.skills.fromJSON(data.skills);
   p.inventory.fromJSON(data.inventory);
   p.equipment.fromJSON(data.equipment);
   p.bank.fromJSON(data.bank);
-  p.runEnergy = data.runEnergy ?? MAX_RUN_ENERGY;
+  p.runEnergy = Math.max(0, Math.min(MAX_RUN_ENERGY, num(data.runEnergy, MAX_RUN_ENERGY)));
   p.runToggled = !!data.runToggled;
   p.running = p.runToggled;
-  p.combatStyle = data.combatStyle ?? 0;
+  p.combatStyle = Math.max(0, Math.floor(num(data.combatStyle, 0)));
+  if (p.combatStyle >= (getWeaponType(p.equipment.weaponType())?.styles?.length || 1)) p.combatStyle = 0;
   p.autoRetaliate = data.autoRetaliate ?? true;
-  p.specialEnergy = data.specialEnergy ?? 100;
-  p.quests = data.quests || {};
-  p.settings = { ...p.settings, ...(data.settings || {}) };
-  p.playTime = data.playTime || 0;
-  p.data = data.data || {};
-  if (data.pos && game.world.isWalkable(data.pos.x, data.pos.y)) p.setPosition(data.pos.x, data.pos.y);
+  p.specialEnergy = Math.max(0, Math.min(100, num(data.specialEnergy, 100)));
+  p.quests = obj(data.quests) || {};
+  p.settings = { ...p.settings, ...(obj(data.settings) || {}) };
+  p.playTime = num(data.playTime, 0);
+  p.data = obj(data.data) || {};
+  const pos = obj(data.pos);
+  if (pos && Number.isInteger(pos.x) && Number.isInteger(pos.y) && game.world.inBounds(pos.x, pos.y)) {
+    // saved on something you can't stand on (a rooftop/obstacle, or the map changed): use the nearest free tile
+    const w = game.world;
+    let spot = w.isWalkable(pos.x, pos.y) ? [pos.x, pos.y] : null;
+    for (let r = 1; r <= 8 && !spot; r++) {
+      for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && w.isWalkable(pos.x + dx, pos.y + dy)) { spot = [pos.x + dx, pos.y + dy]; break; }
+      }
+    }
+    if (spot) p.setPosition(spot[0], spot[1]);
+  }
   p.appearanceVersion++;
   game.events.emit('load', { data });
 }

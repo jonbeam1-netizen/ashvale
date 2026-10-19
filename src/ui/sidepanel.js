@@ -44,7 +44,8 @@ export class SidePanel {
     let t = this.tabs.get(id);
     if (!t) {
       const btn = el('button', 'tab-btn');
-      btn.title = title;
+      const fkey = { combat: 'F1', skills: 'F2', quests: 'F3', inventory: 'F4', equipment: 'F5', prayer: 'F6', magic: 'F7', friends: 'F8', settings: 'F9' }[id];
+      btn.title = fkey ? `${title} (${fkey})` : title;
       btn.innerHTML = `<img alt="" src="${typeof icon === 'function' ? icon() : icon || getShapeIcon('generic', '#888')}">`;
       btn.onclick = () => this.selectTab(id);
       const pane = el('div', `tab-pane tab-${id}`);
@@ -417,6 +418,8 @@ export class SidePanel {
     toggle('xpDrops', 'XP drops');
     toggle('wildyWarning', 'Wilderness warning');
     toggle('showFps', 'Show FPS');
+    if (s.autoQuality === undefined) s.autoQuality = true;
+    toggle('autoQuality', 'Auto quality (lower settings if slow)');
     const dd = el('label', 'set-row', `Draw distance <select><option value="0">Short</option><option value="1">Normal</option><option value="2">Far</option></select>`);
     const sel = dd.querySelector('select');
     sel.value = String(s.drawDistance ?? 1);

@@ -15,10 +15,11 @@ Run locally: `python -m http.server 8123` in the repo root (or the `game` launch
 
 ## 1. File layout & ownership
 
-Parallel agents must only edit files they own. Engine files are owned by the engine (Phase 1); if an
-engine change is truly required, keep it minimal, additive, and mention it in your report.
+> **Status:** the parallel build phases are finished and the ownership rules below **no longer apply** –
+> any module may be edited (keep changes coherent and update this document). The table is kept as a map
+> of *who wrote what* and where each feature lives.
 
-| Path | Owner | Purpose |
+| Path | Original author | Purpose |
 |---|---|---|
 | `index.html`, `css/style.css` | engine | page shell, all HUD styling |
 | `src/main.js` | engine | bootstrap order |
@@ -29,15 +30,15 @@ engine change is truly required, keep it minimal, additive, and mention it in yo
 | `src/input/input.js` | engine | picking, menus |
 | `src/ui/*` | engine | HUD, tabs, interfaces, icons |
 | `src/content/index.js`, `src/systems/index.js` | engine | **fixed** import lists – do not edit |
-| `src/systems/combat.js`, `prayer.js`, `death.js`, `wilderness.js`, `src/content/prayers.js`, combat spells in `src/content/spells.js` | **A** combat/prayer/death/wilderness |
-| `src/systems/gathering.js`, `src/content/gathering.js` | **B** woodcutting/mining/fishing/hunter (+farming gathering side) |
-| `src/systems/production.js`, `src/content/recipes.js` | **C** smithing/cooking/firemaking/crafting/fletching/herblore/runebinding/construction |
-| `src/content/items.js`, `npcs.js`, `objects.js`, `drops.js`, `shops.js`, `map.js` | **D** items/NPCs/world content |
-| `src/net/index.js` (+ new files under `src/net/`) | **E** multiplayer |
-| `src/systems/agility.js`, `thieving.js`, `slayer.js`, `magic.js`, `quests.js`, `src/content/agility.js`, `thieving.js`, `slayer.js`, `quests.js`, utility/teleport spells in `src/content/spells.js` | **F** agility/thieving/slayer/magic utility/quests |
+| `src/systems/combat*.js`, `prayer.js`, `death.js`, `wilderness.js`, `pvp.js`, **`magic.js`**, `src/content/prayers.js`, **`src/content/spells.js`** (combat spells + sigils) | **A** combat/prayer/magic core/death/wilderness/PvP |
+| `src/systems/gathering*.js`, `hunter.js`, `farming.js`, `src/content/gathering*.js` (all resource placement in `gathering_spawns.js`) | **B** woodcutting/mining/fishing/hunter/farming |
+| `src/systems/production*.js`, `firemaking.js`, `herblore.js`, `runebinding.js`, `construction.js`, `src/content/recipes*.js` | **C** smithing/cooking/firemaking/crafting/fletching/herblore/runebinding/construction |
+| `src/content/items*.js`, `npcs*.js` (all vale NPC spawns in `npcs_spawns.js`), `objects.js`, `scenery_*.js`, `visuals.js`, `drops.js`, `shops.js`, `map.js`, `map_regions/*.js` | **D** items/NPCs/world content/map |
+| `src/net/*` | **E** multiplayer |
+| `src/systems/agility.js`, `thieving.js`, `slayer.js`, `quests.js`, `magic_utility.js`, `src/content/agility*.js`, `thieving.js`, `slayer.js`, `quest*.js`, **`src/content/spells_utility.js`** (teleports, alchemy, other utility spells) | **F** agility/thieving/slayer/utility magic/quests |
 
-Agents may create **new helper files inside their own folder area** (e.g. `src/systems/combat_formulas.js`,
-`src/net/peer.js`) and import them from their owned module. Never add imports to the fixed index files.
+`src/content/index.js` and `src/systems/index.js` list the top-level modules; feature files import their
+own helpers (e.g. `npcs.js` imports `npcs_spawns.js`, `gathering.js` imports `gathering_spawns.js`).
 
 **Content placement rule.** Register content in your own content file. Items/objects that belong to a
 skill live in that skill's content file (logs/ores/fish/trees/rocks → `gathering.js`; bars/cooked food/
@@ -52,7 +53,12 @@ registry warns on duplicates (later wins). Any module may call `registerSpawn` t
 4. load save (if any) → `RenderManager` → `UIManager` → `InputManager`
 5. `initSystems(game)` – each `src/systems/*.js` `init(game)` in the order of `systems/index.js`
    (magic, prayer, combat, death, wilderness, gathering, production, agility, thieving, slayer, quests)
-6. `net.init(game)` → render loop → character creation (first run only) → `game.start()` → `'game:ready'`
+6. `net.init(game)` → render loop → character creation (first run only) → `game.start()` → welcome/tips
+   in chat → `'game:ready'`
+
+Loading screen: an inline script in `index.html` counts module downloads (PerformanceObserver) into the
+progress bar; `main.js` then reports its phases via `window.ashvaleLoading(text, fraction)` (and
+`performance.mark('ashvale:<phase>')`). Whole boot is ~1 s after the ~125 module files arrive.
 
 Systems registered in step 5 override engine defaults from step 3 (see Interactions precedence).
 
@@ -217,6 +223,8 @@ registerObject({
   openId / closedId,       // doors: default 'Open'/'Close' swap
   readText: '...',         // default 'Read'
   mapIcon: { char: 'F', color: '#ff8030' },
+  minimap: 'rock',         // optional minimap look: '#rrggbb' | 'wall' | 'fence' | 'door' | 'tree' | 'bush' | 'rock' | 'block' | false
+                           // (default: derived from model.template, see ui/minimap.js KIND_BY_TEMPLATE)
   model: { template: 'tree', variant: 'oak-like', /* template params */ },
 });
 ```
@@ -293,8 +301,14 @@ World is built once after all content imports: base terrain + fBm hills → pain
 building floors → liquids (water lowered, blocked) → sandy shores → border blocked → vertex heights →
 areas → spawn rules in order.
 
-`setMapConfig({ width: 192, height: 192, seed, baseTerrain: 'grass', waterLevel: 0, hillAmplitude,
-spawn: {x,y}, respawn: {x,y}, wildernessEdgeY: 48, shores: true })`
+`setMapConfig({ width: 288, height: 256, seed, baseTerrain: 'grass', waterLevel: 0, hillAmplitude,
+spawn: {x,y}, respawn: {x,y}, wildernessEdgeY: 48, shores: true })` (current world: **288 × 256**, spawn and
+respawn `(96,141)` in Brackenford's square).
+
+Where things are placed: `map.js` + `map_regions/*.js` paint terrain and place scenery/buildings (and the
+NPCs of the newer regions); **all vale NPC spawns** are in `content/npcs_spawns.js`; **all gathering
+resources** (trees, rocks, fishing spots, hunter creatures, farming patches) are in
+`content/gathering_spawns.js`; quest NPCs/objects live with their quest (`quests_*.js`).
 
 **Terrain types** (`src/world/terrain.js`): `grass dark_grass dirt sand stone snow water cobble wood_floor
 wild_grass ash swamp cave_floor void lava farmland ditch mountain stone_floor flowers`. Unwalkable:
@@ -326,7 +340,16 @@ to cave darkness + player torch light; `multi` enables multi-combat (`world.isMu
 | `item` | `id, qty, x, y, respawnTicks` – permanent ground spawn |
 | `line` | `id, points:[[x,y]...], gaps:[[x,y]...]` – fences/walls along segments (auto-rotated) |
 | `building` | `x, y, w, h, wall: 'wall_stone', floor: 'wood_floor', roof: '#7a3a2a' \| false, doors: [{side:'n'\|'s'\|'e'\|'w', offset, width}], doorObject?: 'door_wood', name, height?` – perimeter walls, floor, flattened ground, roof mesh (hidden while the player is inside) |
-| `scatter` | `ids: ['a', {id:'b', weight:3}], kind: 'object'\|'npc', rect: [x0,y0,x1,y1], circle?: [cx,cy,r], count \| density, seed, spacing (objects), terrain?: [ids] (default natural terrains), water?: true (water tiles next to land), wander?` |
+| `scatter` | `ids: ['a', {id:'b', weight:3}], kind: 'object'\|'npc', rect: [x0,y0,x1,y1], circle?: [cx,cy,r], count \| density, seed, spacing (objects), terrain?: [ids] (default natural terrains), water?: true (water tiles next to land), wander?, indoors? (npc)` |
+
+Spawn resolution order: all scenery/item/building rules first (in registration order), **then** all NPC
+rules, so a creature never starts inside a rock or wall placed by a later rule. NPC rules: a fixed `npc`
+spawn on a blocked/occupied tile moves to the nearest free tile (≤ 5); NPC scatters only use free,
+walkable, outdoor tiles (`indoors: true` allows house floors) and ignore `noScatter`/natural-terrain
+filters (creatures may roam roads and towns). Object scatters: walk-over decoration (non-blocking objects
+without options – grass tufts, pebbles, lily pads) doesn't count against `spacing` for real scenery and is
+removed from its footprint; decoration itself keeps clear of everything. Each scatter rule records
+`rule._placed` (compare with `count` when tuning).
 
 ### World queries (`game.world`)
 `width, height` · `inBounds(x,y)` · `terrainAt(x,y)` → terrain def · `isWalkable(x,y)` ·
@@ -362,7 +385,11 @@ woodcutter's cabin `(50,125)`). Greystone Quarry `(44,76)`, cave entrance `(33,6
 + bridge from `(146,129)`. Highmarch walled town `(140–182, 52–102)`: gates W `(140,76–78)`, S `(160–162,102)`,
 E `(182,76–78)`; keep throne room, Gilded Tankard inn `(141–149,93–100)`, barracks `(176–181,79–91)`, sewer
 manhole `(157,98)`. Haverly Farms `(140–180, 146–177)` + windmill `(168,142)`, barn `(170–178,148–155)`,
-wheat field `(129–139,162–172)`. Murkfen `(76–112, 160–177)`. Landmarks: Whisperstones `(70,96)`, Sentinel Hill
+wheat field `(129–139,162–172)`. Murkfen `(76–112, 160–177)`. Starter goblin camp (level-2 goblins only)
+`(107–121,149–163)`; Grubnak's War Camp (Grubnak + goblin warband, multi) palisade `(29–43,116–130)` west of
+Thornwood; Brackenford starter outcrop (copper/tin) `(99–103,101–104)`. Gloomhollow's upper caverns are a
+level ~5–40 area (quest "Down in Gloomhollow"); its bosses (Varrath – Tyrant's Hollow `(8,218)`, Mother
+Skitterlace – Widow's nest, azure dragon – Azure Grotto `(39,218)`) live in The Sunless Deep. Landmarks: Whisperstones `(70,96)`, Sentinel Hill
 `(108,72)`, Barrowfield `(6–26,100–122)`, Fort Rowan `(8–22,136–152)`, Westcrag Bluffs `(0–26,82–96)`,
 Hagstone Cottage `(14,64)`, Thistledown Lumber Camp `(66,58)`, Ditchwatch `(101,53)`.
 
@@ -644,7 +671,14 @@ Systems may emit their own namespaced events (`combat:*`, `net:*`, `quest:*` …
 
 ## 10. Save / load (`src/core/save.js`)
 
-localStorage key `ashvale.save`, JSON, `version: SAVE_VERSION` (1) with a `migrate()` hook. Saved:
+localStorage key `ashvale.save`, JSON, `version: SAVE_VERSION` (1) with a `migrate()` hook.
+
+**Save slots:** `?profile=<name>` (letters, digits, `_`, `-`; max 32) switches to the key
+`ashvale.save.<name>` (`SAVE_PROFILE` / `SAVE_KEY` exports) – handy for several test characters or tabs.
+**Robustness:** an unparsable save is moved to `<key>.broken` and the game starts with character creation;
+`applySave` type-checks every field (bad items/quantities are dropped, a position on a blocked tile moves
+to the nearest free tile), `player.store(ns)` replaces a corrupt namespace with `{}`, and if applying a
+save still throws, it is moved aside and the page reloads. Saved:
 name, appearance, position, skills (xp + current), inventory, equipment, bank, run energy/toggle,
 combat style, auto-retaliate, special energy, `quests`, `settings`, playTime and **`player.data`**.
 Autosave every 30 s, on tab hide and on unload. First load (no save) shows character creation and
@@ -683,6 +717,11 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   `game.interactions.onPlayer(option, handler, {range})`.
 * **UI:** render the Friends/Multiplayer tab with `game.ui.registerTab({ id: 'friends', render(pane) {...} })`
   (or write into `game.ui.getTabElement('friends')`).
+* **Shared state (implemented in `src/net/`):** every hitsplat a player takes is mirrored from its own
+  client (`splat`; the attacker's PvP splat waits for it – `game.pvp.confirmHit`), effects involving
+  players are mirrored (`fx`, receivers get `fromNet: true` on `'effect'`), agility `forced` walks are sent
+  in snapshots, and non-permanent ground items inside the Wilderness are host-authoritative shared items
+  (`gi.nid`, `src/net/shared.js`). Details: `docs/NET_SHARED_WORLD.md`.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -697,6 +736,11 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   animated templates are individual meshes. Roofs hide while the player is inside a building.
 * Characters: rigs of pivot groups with merged meshes; procedural animation per rig kind
   (`biped quad spider bird bat`). Overlays (hitsplats, HP bars, overhead text, name tags) are DOM.
-* Camera: arrow keys / middle-drag rotate, wheel zooms, compass resets north. Shadows from a sun that
+* Camera: arrow keys / middle-drag rotate, wheel zooms, compass resets north. Touch (`input.js`): tap = left-click,
+  press-and-hold = right-click menu, one-finger drag rotates, pinch zooms. Phones (< 600 px wide) get a stacked HUD.
+* Performance: scenery is instanced per variant *per 32-tile chunk* and chunks beyond the fog are hidden;
+  characters further than 48 tiles are not updated/drawn. `RenderManager.autoQuality()` turns shadows off and
+  then shortens the draw distance after ~5 s below 30 fps (Settings > Auto quality). Typical cost on a desktop GPU:
+  2–3.5 ms per frame, ≤ 270 draw calls, ≤ 230k triangles in the busiest towns; a game tick with ~580 NPCs < 0.5 ms. Shadows from a sun that
   follows the player (toggle in Settings). Wilderness tints the sky/fog; `dungeon` areas go dark with a
   player torch light.

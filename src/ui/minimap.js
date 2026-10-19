@@ -8,6 +8,28 @@ import { el } from './util.js';
 const S = 4;          // pixels per tile in the minimap image
 const SIZE = 164;     // minimap canvas size (css px)
 
+// How scenery shows on the minimap. Object defs may override with `minimap: '#rrggbb' | 'wall' | 'tree' |
+// 'rock' | 'bush' | 'fence' | 'door' | 'block' | false`.
+const KIND_BY_TEMPLATE = {
+  wall: 'wall', stone_wall_low: 'wall', dec_ruined_wall: 'wall', dec_turret: 'wall', dec_cliff: 'rock',
+  fence: 'fence', dec_palisade: 'fence', dec_iron_fence: 'fence', dec_hedge: 'bush',
+  door: 'door',
+  tree: 'tree', dec_decor_tree: 'tree', dec_palm: 'tree', stump: false,
+  bush: 'bush', dec_cactus: 'bush', dec_dead_bush: false,
+  rock: 'rock', ore_rock: 'rock', boulder: 'rock', essence_rock: 'rock', clay_deposit: 'rock', dec_rock_cluster: 'rock',
+  standing_stone: 'rock', dec_standing_stone: 'rock', dec_stalagmite: 'rock', dec_lava_rock: 'rock', dec_obsidian_spike: 'rock',
+  dec_ice_spike: 'rock', dec_crystal: 'rock', dec_dolmen: 'rock', pillar: 'rock',
+  fishing_spot: false, ditch: false,
+};
+function minimapKind(def) {
+  if (def.minimap !== undefined) return def.minimap;
+  const t = def.model?.template;
+  if (t && Object.prototype.hasOwnProperty.call(KIND_BY_TEMPLATE, t)) return KIND_BY_TEMPLATE[t];
+  if (t && /tree|pine/.test(t)) return 'tree';
+  if (t && /rock|boulder|crag|stalag/.test(t)) return 'rock';
+  return def.blocks ? 'block' : false;
+}
+
 export class Minimap {
   constructor(ui) {
     this.ui = ui;
@@ -39,6 +61,8 @@ export class Minimap {
     this.canvas.addEventListener('mousedown', (e) => this.onClick(e));
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.buildImage();
+    // systems spawn more scenery during init (runtime mine rocks, construction...): redraw once the game is up
+    this.game.events.on('game:ready', () => this.buildImage());
   }
 
   buildImage() {
@@ -57,13 +81,16 @@ export class Minimap {
     ctx.globalAlpha = 1;
     this.icons = [];
     for (const o of this.game.objects.values()) {
-      const m = o.def.model?.template;
+      const kind = minimapKind(o.def);
       const px = o.x * S, py = o.y * S;
-      if (m === 'wall' || m === 'fence' || m === 'stone_wall_low') { ctx.fillStyle = m === 'fence' ? '#c8b89a' : '#e8e8e8'; ctx.fillRect(px, py, o.w * S, o.h * S); }
-      else if (m === 'door') { ctx.fillStyle = '#c03020'; ctx.fillRect(px, py, o.w * S, o.h * S); }
-      else if (m === 'tree') { ctx.fillStyle = '#1e4a18'; ctx.beginPath(); ctx.arc(px + (o.w * S) / 2, py + (o.h * S) / 2, S * 0.8 * o.w, 0, 7); ctx.fill(); }
-      else if (m === 'rock' || m === 'boulder') { ctx.fillStyle = '#8a8478'; ctx.fillRect(px + 1, py + 1, S - 2, S - 2); }
-      else if (o.blocks) { ctx.fillStyle = 'rgba(40,30,20,0.55)'; ctx.fillRect(px, py, o.w * S, o.h * S); }
+      if (typeof kind === 'string' && kind.startsWith('#')) { ctx.fillStyle = kind; ctx.fillRect(px, py, o.w * S, o.h * S); }
+      else if (kind === 'wall') { ctx.fillStyle = '#e8e8e8'; ctx.fillRect(px, py, o.w * S, o.h * S); }
+      else if (kind === 'fence') { ctx.fillStyle = '#c8b89a'; ctx.fillRect(px, py, o.w * S, o.h * S); }
+      else if (kind === 'door') { ctx.fillStyle = '#c03020'; ctx.fillRect(px, py, o.w * S, o.h * S); }
+      else if (kind === 'tree') { ctx.fillStyle = '#1e4a18'; ctx.beginPath(); ctx.arc(px + (o.w * S) / 2, py + (o.h * S) / 2, S * 0.8 * o.w, 0, 7); ctx.fill(); }
+      else if (kind === 'bush') { ctx.fillStyle = '#2c5a22'; ctx.beginPath(); ctx.arc(px + (o.w * S) / 2, py + (o.h * S) / 2, S * 0.45 * o.w, 0, 7); ctx.fill(); }
+      else if (kind === 'rock') { ctx.fillStyle = '#5a564e'; ctx.fillRect(px + 0.5, py + 0.5, o.w * S - 1, o.h * S - 1); ctx.fillStyle = '#9a9488'; ctx.fillRect(px + 1, py + 1, o.w * S - 2.5, o.h * S - 2.5); }
+      else if (kind === 'block') { ctx.fillStyle = 'rgba(40,30,20,0.4)'; ctx.fillRect(px, py, o.w * S, o.h * S); }
       if (o.def.mapIcon) this.icons.push({ x: o.x + o.w / 2, y: o.y + o.h / 2, ...o.def.mapIcon });
     }
     for (const n of this.game.npcs.values()) if (n.def.mapIcon) this.icons.push({ x: n.spawnX + 0.5, y: n.spawnY + 0.5, ...n.def.mapIcon });

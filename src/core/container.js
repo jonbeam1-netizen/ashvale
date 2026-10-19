@@ -118,7 +118,8 @@ export class Container {
     this.slots.fill(null);
     if (!Array.isArray(arr)) return;
     arr.slice(0, this.size).forEach((s, i) => {
-      if (s && getItem(s[0])) this.slots[i] = { id: s[0], qty: s[1] };
+      const qty = Math.floor(Number(s?.[1]));
+      if (s && getItem(s[0]) && qty > 0) this.slots[i] = { id: s[0], qty };
     });
   }
 }

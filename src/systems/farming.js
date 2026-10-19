@@ -20,7 +20,7 @@ const api = { speed: 1, patches };   // speed: growth multiplier (debug)
 const now = () => Date.now();
 const store = () => {
   const s = game.player.store('farming');
-  if (!s.patches) s.patches = {};
+  if (!s.patches || typeof s.patches !== 'object') s.patches = {};
   return s;
 };
 const stageMs = (kind) => (PATCH_TYPES[kind].growMins * MIN) / api.speed;

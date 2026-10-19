@@ -166,6 +166,7 @@ export function init(game) {
     const wild = game.world.getWildernessLevel(x, y) > 0;
     const killer = game.pvp?.killerOf(p, e.killer) || null;
     game.message('<col=c00000>Your vision greys and the world slips away... you have died.</col>');
+    if (killer) game.message(`<col=c00000>You have been defeated by ${killer.name}.</col>`);
     game.schedule(4, () => {
       const { kept, lost, keepCount } = itemsKeptOnDeath(p, { wild });
       p.inventory.clear();
@@ -176,8 +177,12 @@ export function init(game) {
 
       if (wild) {
         const loot = [...lost, { id: 'bones', qty: 1 }].filter((it) => getItem(it.id));
-        if (killer && typeof game.net?.sendLoot === 'function') {
-          game.net.sendLoot(killer.peerId, { items: loot, x, y });
+        // the killer may have left during the death animation: then the loot drops here instead
+        let sent = false;
+        if (killer && typeof game.net?.sendLoot === 'function' && game.remotePlayers.has(killer.peerId)) {
+          try { sent = !!game.net.sendLoot(killer.peerId, { items: loot, x, y }); } catch (err) { console.warn('[death] sendLoot failed', err); }
+        }
+        if (sent) {
           game.message(`${killer.name} has claimed your belongings.`);
         } else {
           for (const it of lost) game.spawnGroundItem(it.id, it.qty, x, y, { owner: null, ticks: WILD_DROP_TICKS });

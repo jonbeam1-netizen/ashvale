@@ -69,6 +69,10 @@ export function paintTerrain() {
   // ---- Brackenford churchyard, goblin camp ground ----------------------------------------------------------
   keepClear(116, 123, 122, 135);
   paint({ shape: 'circle', cx: 114, cy: 156, r: 5, terrain: 'dirt', jitter: 2 });
+  // ---- Grubnak's war camp (west of Thornwood, well away from the starter town) ------------------------------
+  paint({ shape: 'rect', x0: 28, y0: 115, x1: 44, y1: 131, terrain: 'dirt', jitter: 1.5, noScatter: true });
+  paint({ shape: 'rect', x0: 30, y0: 117, x1: 42, y1: 129, height: 1.0, falloff: 3 });
+  road([[50, 132], [47, 127], [44, 123]], 1.5);
 }
 
 export function areas() {
@@ -84,6 +88,7 @@ export function areas() {
   area({ id: 'lumber_camp', name: 'Thistledown Lumber Camp', x0: 59, y0: 51, x1: 73, y1: 65, priority: 3 });
   area({ id: 'westcrag', name: 'Westcrag Bluffs', x0: 0, y0: 82, x1: 26, y1: 96, priority: 2 });
   area({ id: 'goblin_camp', name: 'Goblin Camp', x0: 107, y0: 149, x1: 121, y1: 163, priority: 4 });
+  area({ id: 'grubnak_camp', name: "Grubnak's War Camp", x0: 28, y0: 115, x1: 44, y1: 131, priority: 4, multi: true });
   area({ id: 'gilded_tankard', name: 'The Gilded Tankard', x0: 141, y0: 93, x1: 149, y1: 100, priority: 6 });
   area({ id: 'highmarch_keep', name: 'Highmarch Keep', x0: 155, y0: 55, x1: 167, y1: 64, priority: 6 });
 }
@@ -152,11 +157,19 @@ export function spawns() {
   objs('skull_pike', [[108, 155], [120, 154], [112, 162], [119, 157]]);
   objs('spike_barricade', [[107, 158, 1], [121, 152, 1], [110, 163]]);
   objs('bones_pile', [[115, 152], [110, 156]]);
+  // -- Grubnak's war camp (west of Thornwood)
+  line('palisade_dark', [[29, 116], [43, 116], [43, 130], [29, 130], [29, 116]], [[43, 122], [43, 123], [43, 124]]);
+  obj('tent_ragged', 32, 119); obj('tent_ragged', 39, 119, 1); obj('tent_ragged', 32, 126, 3); obj('tent_ragged', 39, 127, 2);
+  obj('campfire', 36, 123); obj('totem_skull', 36, 119);
+  objs('skull_pike', [[44, 121], [44, 125], [30, 117], [42, 129]]);
+  objs('spike_barricade', [[45, 120, 1], [45, 126, 1]]);
+  objs('bones_pile', [[34, 124], [40, 124]]);
+  readable('war_sign', 46, 123, 'Crude sign', '"GRUBNAK KING OF ALL GOBLINS. EVERYONE ELSE GO AWAY." Someone has drawn a very big axe underneath. You get the feeling the warband inside is not friendly.');
   // -- signposts
   signpost(63, 136, 'West: Thornwood, Fort Rowan. North-west: Greystone Quarry, Barrowfield. East: Brackenford.');
   signpost(98, 101, 'North: the Wilderness (danger!). North-east: Highmarch via the Silverrun bridge. South: Brackenford. North-west: Sentinel Hill.');
   signpost(133, 137, 'West: Brackenford. North: Mirrowmere, Highmarch. South-east: Haverly Farms, Gullhaven.');
-  signpost(98, 159, 'South: Murkfen Swamp, Bogwick and the Saltmarsh Coast. North: Brackenford.');
+  signpost(98, 159, 'South: Murkfen Swamp, Bogwick and the Saltmarsh Coast - keep to the road, the deep fen is home to dangerous creatures! North: Brackenford.');
   signpost(157, 160, 'South: Gullhaven. North-west: Brackenford. East: the Haverly Pass to the Sunscar Badlands.');
 
   // =================================================================================================

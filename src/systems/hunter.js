@@ -11,6 +11,8 @@ let game;
 const traps = new Set();          // trap objects laid by the local player
 const TRAP_LIFE = 300;            // ticks before an unchecked trap collapses
 const LURE_RANGE = 6;
+/** Objects that stop a trap being laid (walk-over decoration such as grass tufts doesn't). */
+const solid = (o) => !o.hidden && (o.blocks || o.def.options?.length);
 
 export const maxTraps = (player) => 1 + Math.floor(player.skills.getLevel('hunter') / 20) + (game.world.isWilderness(player.x, player.y) ? 1 : 0);
 
@@ -27,7 +29,7 @@ function layTrap({ player, slot, item }) {
   for (const t of traps) if (!game.objects.has(t.uid)) traps.delete(t);
   if (traps.size >= max) { game.message(`You don't have a high enough Hunter level to set up more than ${max} trap${max > 1 ? 's' : ''}.`); return; }
   const { x, y } = player;
-  if (game.world.objectsAt(x, y).length || game.world.buildingAt?.(x, y)) { game.message("You can't lay a trap here."); return; }
+  if (game.world.objectsAt(x, y).some(solid) || game.world.buildingAt?.(x, y)) { game.message("You can't lay a trap here."); return; }
   game.message('You begin setting up the trap.');
   game.playAnim(player, 'pickup', 1500);
   game.actions.start(player, {
@@ -35,7 +37,7 @@ function layTrap({ player, slot, item }) {
     onTick: () => {
       const cur = player.inventory.get(slot);
       if (!cur || cur.id !== item.id) return false;
-      if (game.world.objectsAt(x, y).length) { game.message("You can't lay a trap here."); return false; }
+      if (game.world.objectsAt(x, y).some(solid)) { game.message("You can't lay a trap here."); return false; }
       player.inventory.removeAt(slot, 1);
       const obj = game.spawnObject(td.set, x, y);
       obj.state.trapItem = item.id;

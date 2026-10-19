@@ -260,8 +260,19 @@ img { -webkit-user-drag: none; image-rendering: auto; }
 #loading.done { opacity: 0; pointer-events: none; }
 .loading-title { font-family: Georgia, serif; font-size: 40px; color: #ffde72; text-shadow: 3px 3px 0 #000; text-align: center; }
 .loading-text { color: #c8b890; text-align: center; margin-top: 8px; }
+.loading-bar { width: 260px; max-width: 70vw; height: 12px; margin: 14px auto 0; border: 1px solid #5a4a30; background: #1e1810; border-radius: 3px; overflow: hidden; }
+.loading-fill { width: 0; height: 100%; background: linear-gradient(#e8b040, #a06818); transition: width 0.15s; }
 
 @media (max-width: 900px) {
   #chatbox { width: calc(100vw - 260px); }
   .levelup { width: calc(100vw - 260px); }
+}
+/* phones / narrow portrait screens: chat full width at the bottom, side panel stacked above it */
+@media (max-width: 600px) {
+  #chatbox { width: calc(100vw - 8px); height: 128px; }
+  .levelup { width: calc(100vw - 8px); }
+  #sidepanel { bottom: 136px; transform: scale(0.82); transform-origin: bottom right; }
+  #hud-topright { transform: scale(0.82); transform-origin: top right; }
+  #interface-layer { right: 0; bottom: 424px; } /* above the side panel so the inventory stays usable */
+  .iface { max-width: calc(100vw - 8px); min-width: 0; }
 }

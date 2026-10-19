@@ -10,7 +10,8 @@ let game;
 function canLightHere(x, y) {
   const w = game.world;
   if (!w.isWalkable(x, y) || w.buildingAt(x, y)) return false;
-  if (game.world.objectsAt(x, y).some((o) => !o.hidden)) return false;
+  // decoration you can walk over (grass tufts, pebbles, flowers...) doesn't stop a fire; real objects do
+  if (game.world.objectsAt(x, y).some((o) => !o.hidden && (o.blocks || o.def.options?.length))) return false;
   const area = w.getArea?.(x, y);
   return !(area && /bank/i.test(area.id || ''));
 }

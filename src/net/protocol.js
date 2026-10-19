@@ -102,7 +102,7 @@ function cleanValue(v, depth = 0) {
 }
 
 const KNOWN_SNAP_KEYS = new Set(['name', 'appearance', 'equipment', 'x', 'y', 'running', 'hp', 'maxHp', 'combatLevel',
-  'anim', 'faceAngle', 'dead', 'overhead', 'prayers', 'wildernessLevel', 'deathCount', 'fx']);
+  'anim', 'faceAngle', 'dead', 'overhead', 'prayers', 'wildernessLevel', 'deathCount', 'fx', 'elevation', 'forced']);
 
 /** Validate a remote snapshot. Returns a fresh object or null. */
 export function cleanSnapshot(s, world) {
@@ -150,6 +150,8 @@ export function cleanSnapshot(s, world) {
   if (isObj(s.fx) && typeof s.fx.n === 'string' && /^[a-z_]{1,24}$/.test(s.fx.n)) {
     out.fx = { n: s.fx.n, id: int(s.fx.id, 0, 1e12, 0), d: int(s.fx.d, 100, 5000, 1200) };
   }
+  if (typeof s.elevation === 'number' && Number.isFinite(s.elevation)) out.elevation = Math.max(-5, Math.min(20, s.elevation));
+  if (s.forced === true) out.forced = true;
   // extension fields added by other systems through the 'snapshot' event (e.g. combat stats, skull)
   let extra = 0;
   for (const k of Object.keys(s)) {
@@ -202,3 +204,51 @@ export function cleanLoot(d, world) {
 
 /** Generic payload for game.net.send/broadcast custom messages. */
 export function cleanPayload(d) { return cleanValue(d); }
+
+const FX_KINDS = new Set(['projectile', 'sparkle', 'splash', 'teleport', 'levelup']);
+const SPLAT_TYPES = new Set(['damage', 'block', 'poison', 'venom', 'heal']);
+
+/** Entity reference inside an effect message: {p: peerId} | {t: [x, y]} (tile). */
+function cleanRef(r, world) {
+  if (!isObj(r)) return null;
+  const p = cleanId(r.p);
+  if (p) return { p };
+  if (Array.isArray(r.t)) {
+    const x = int(r.t[0], 0, 100000), y = int(r.t[1], 0, 100000);
+    if (x != null && y != null && world.inBounds(x, y)) return { t: [x, y] };
+  }
+  return null;
+}
+
+/** Validate a visual effect message (projectiles, sparkles... spawned by a peer). */
+export function cleanFx(d, world) {
+  if (!isObj(d) || !FX_KINDS.has(d.k)) return null;
+  const at = cleanRef(d.at, world);
+  if (!at) return null;
+  const out = { k: d.k, at };
+  if (d.to != null) { const to = cleanRef(d.to, world); if (!to) return null; out.to = to; }
+  if (d.k === 'projectile' && !out.to) return null;
+  const c = int(d.c, 0, 0xffffff);
+  if (c != null) out.c = c;
+  const ms = int(d.ms, 50, 5000);
+  if (ms != null) out.ms = ms;
+  if (typeof d.sz === 'number' && Number.isFinite(d.sz)) out.sz = Math.max(0.01, Math.min(1, d.sz));
+  if (typeof d.arc === 'number' && Number.isFinite(d.arc)) out.arc = Math.max(0, Math.min(3, d.arc));
+  return out;
+}
+
+/** Validate a hitsplat message (the victim reports damage it took). */
+export function cleanSplat(d) {
+  if (!isObj(d)) return null;
+  const out = { hid: typeof d.hid === 'string' && d.hid.length <= 40 ? d.hid : null };
+  if (d.none === true) { out.none = true; return out; }
+  const a = int(d.a, 0, 9999);
+  if (a == null) return null;
+  out.a = a;
+  out.t = SPLAT_TYPES.has(d.t) ? d.t : (a > 0 ? 'damage' : 'block');
+  const hp = int(d.hp, 0, 9999), mhp = int(d.mhp, 1, 9999);
+  if (hp != null) out.hp = hp;
+  if (mhp != null) out.mhp = mhp;
+  out.src = cleanId(d.src);
+  return out;
+}
