@@ -232,9 +232,9 @@ const bones = (id, name, examine, value, xp, color, extra = {}) =>
 bones('wolf_bones', 'Wolf bones', 'Bones of a wolf.', 6, 4.5, '#e0dccc');
 bones('bat_bones', 'Bat bones', 'Tiny, fragile bones.', 6, 5.3, '#d8d0c0');
 bones('goblin_bones', 'Goblin bones', 'Small, crooked bones.', 4, 5, '#d8d4b8');
-bones('drake_bones', 'Drake bones', 'Bones of a young dragon.', 1200, 30, '#e8e0c8');
-bones('wyrm_bones', 'Wyrm bones', 'These belonged to a fully-grown dragon.', 2600, null, '#f2ecd8');
-bones('frost_wyrm_bones', 'Frost wyrm bones', 'Cold enough to sting your fingers.', 5200, 110, '#e0f0ff');
+bones('drake_bones', 'Drake bones', 'Bones of a young dragon.', 400, 30, '#e8e0c8');
+bones('wyrm_bones', 'Wyrm bones', 'These belonged to a fully-grown dragon.', 900, null, '#f2ecd8');
+bones('frost_wyrm_bones', 'Frost wyrm bones', 'Cold enough to sting your fingers.', 1800, 110, '#e0f0ff');
 bones('giant_bones', 'Giant bones', 'Huge bones from a giant.', 120, 25, '#f4eedc');
 bones('fiend_bones', 'Fiend bones', 'Charred, horned bones of a fiend.', 400, null, '#5a5050', { icon: { shape: 'bones', color: '#5a5050' } });
 registerItem({ id: 'ashes', name: 'Ashes', examine: 'A heap of fine ashes.', value: 2, icon: { shape: 'seed', color: '#9a9a9a' } });

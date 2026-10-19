@@ -8,7 +8,8 @@ Owner: agent A (`src/systems/combat*.js`, `prayer.js`, `magic.js`, `death.js`, `
   accurate +3 att (+3 ranged), aggressive +3 str, defensive +3 def, controlled +1 each, longrange +3 def.
 * Attack roll = effective × (attack bonus + 64); defence roll = effective defence × (defence bonus + 64);
   vs magic, players defend with `floor(0.7 × magic + 0.3 × defence) + 8`, NPCs with their Magic level.
-* Hit chance: `a > d ? 1 − (d+2)/(2(a+1)) : a/(2(d+1))`; damage uniform 0..max on a hit.
+* Hit chance: `a > d ? 1 − (d+2)/(2(a+1)) : a/(2(d+1))`; damage on a hit is uniform 1..max for players
+  (`PLAYER_LANDED_MIN`, see docs/BALANCE.md) and 0..max for NPCs.
 * Max hit melee `floor(0.5 + effStr × (str + 64) / 640)`; ranged same with ranged strength;
   magic = spell max × (1 + magicDamage%/100).
 * XP: 4 per damage to the style's skill(s) (split for controlled / longrange) + 1.33 Hitpoints;
@@ -48,6 +49,9 @@ Weapon-type fields read: `ranged`, `thrown`, `ammoType`, `attackRange`, styles[`
 (heal ½ dmg, prayer ¼), `unerring_strike` (never misses), `venom_rend` (poisons), `hamstring` (binds 6 s),
 `whirlwind` (hits up to 2 extra adjacent foes in multi), `twin_shot` (ranged, 2 arrows),
 `piercing_shot` (ranged, ×2 accuracy), `war_cry` (instant: −10% att/def/rng/mag, +str).
+Raid relics (`content/raid_items.js`): `sunder` (+25% acc, +30% dmg, saps 10% Defence), `solar_volley` (ranged, 3 arrows
+at 85% dmg, +30% acc), `corona` (instant, needs autocast: magic burst on the target + up to 3 adjacent foes in multi,
++30% dmg, ×1.5 accuracy, heals ¼ of the damage).
 Register more: `game.combat.registerSpecial(id, {name, cost, modes, hits, accuracy, damage, alwaysHit,
 minHitPct, onHit(ctx, dmg), instant(ctx), extraTargets(ctx)})`. Energy regenerates 10% / 30 s (engine).
 

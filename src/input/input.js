@@ -27,35 +27,65 @@ export class InputManager {
     this.initTouch();
   }
 
-  // ---- touch screens: tap = left-click, press-and-hold = right-click menu, one-finger drag = rotate the
-  //      camera, two-finger pinch = zoom. (Panels/menus are DOM and get the browser's synthesized clicks.)
+  // ---- touch screens: tap = left-click, press-and-hold = right-click menu (a ring fills while holding),
+  //      one-finger drag = rotate/tilt the camera, two fingers: pinch = zoom, twist = rotate, drag up/down = tilt.
+  //      (Panels/menus are DOM and get the browser's synthesized clicks; ui/mobile.js adds long-press there.)
   initTouch() {
     const c = this.canvas;
     c.style.touchAction = 'none';
     this.touch = null;
     this.touchTimer = 0;
+    this.ring = document.createElement('div');
+    this.ring.className = 'lp-ring';
+    document.getElementById('game-root')?.appendChild(this.ring);
     const opts = { passive: false };
     c.addEventListener('touchstart', (e) => this.onTouchStart(e), opts);
     c.addEventListener('touchmove', (e) => this.onTouchMove(e), opts);
     c.addEventListener('touchend', (e) => this.onTouchEnd(e), opts);
-    c.addEventListener('touchcancel', () => { clearTimeout(this.touchTimer); this.touch = null; }, opts);
+    c.addEventListener('touchcancel', () => { clearTimeout(this.touchTimer); this.touch = null; this.showRing(false); }, opts);
+  }
+
+  /** Long-press feedback: a ring that fills up over the hold time (shown after a short delay, so taps don't flash). */
+  showRing(on, x, y) {
+    const r = this.ring;
+    if (!r) return;
+    clearTimeout(this.ringTimer);
+    r.classList.remove('on');
+    if (!on) return;
+    r.style.left = `${x}px`; r.style.top = `${y}px`;
+    this.ringTimer = setTimeout(() => { void r.offsetWidth; r.classList.add('on'); }, 110);
+  }
+
+  twoFinger(ts) {
+    const a = ts[0], b = ts[1];
+    return {
+      d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+      ang: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
+      my: (a.clientY + b.clientY) / 2,
+    };
   }
 
   onTouchStart(e) {
     e.preventDefault(); // no emulated mouse events / page zoom on the 3D view
     const ts = e.touches;
     clearTimeout(this.touchTimer);
+    this.game.ui?.menu?.hide();
     if (ts.length === 1) {
       const t = ts[0];
       this.touch = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, moved: false, long: false };
+      this.showRing(true, t.clientX, t.clientY);
       this.touchTimer = setTimeout(() => {
         const cur = this.touch;
+        this.showRing(false);
         if (!cur || cur.moved || cur.pinch) return;
         cur.long = true;
+        try { navigator.vibrate?.(12); } catch { /* not allowed */ }
         this.onDown({ button: 2, clientX: cur.x, clientY: cur.y });
       }, 450);
-    } else if (ts.length === 2) {
-      this.touch = { pinch: Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY), moved: true };
+    } else if (ts.length >= 2) {
+      this.showRing(false);
+      const f = this.twoFinger(ts);
+      this.touch = { pinch: f.d || 1, ang: f.ang, my: f.my, moved: true };
     }
   }
 
@@ -65,15 +95,19 @@ export class InputManager {
     if (!t) return;
     const cam = this.game.renderer.cameraCtl;
     const ts = e.touches;
-    if (ts.length === 2 && t.pinch) {
-      const d = Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
-      if (d > 0) cam.targetDist = Math.max(cam.minDist, Math.min(cam.maxDist, cam.targetDist * (t.pinch / d)));
-      t.pinch = d;
+    if (ts.length >= 2 && t.pinch) {
+      const f = this.twoFinger(ts);
+      if (f.d > 0) cam.targetDist = Math.max(cam.minDist, Math.min(cam.maxDist, cam.targetDist * (t.pinch / f.d)));
+      let da = f.ang - t.ang;
+      if (da > Math.PI) da -= Math.PI * 2; else if (da < -Math.PI) da += Math.PI * 2;
+      cam.yaw += da; // twist: the world turns with the fingers
+      cam.pitch = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + (f.my - t.my) * 0.005));
+      t.pinch = f.d || t.pinch; t.ang = f.ang; t.my = f.my;
       return;
     }
     if (ts.length !== 1 || t.pinch) return;
     const p = ts[0];
-    if (!t.moved && Math.hypot(p.clientX - t.x, p.clientY - t.y) > 12) { t.moved = true; clearTimeout(this.touchTimer); }
+    if (!t.moved && Math.hypot(p.clientX - t.x, p.clientY - t.y) > 12) { t.moved = true; clearTimeout(this.touchTimer); this.showRing(false); }
     if (t.moved && !t.long) {
       cam.yaw -= (p.clientX - t.lx) * 0.008;
       cam.pitch = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + (p.clientY - t.ly) * 0.006));
@@ -83,8 +117,13 @@ export class InputManager {
 
   onTouchEnd(e) {
     e.preventDefault();
-    if (e.touches.length) return; // other fingers still down
+    if (e.touches.length) {
+      // a finger of a pinch lifted: keep tracking the other two (if any), never turn it into a tap
+      if (e.touches.length >= 2 && this.touch?.pinch) { const f = this.twoFinger(e.touches); Object.assign(this.touch, { pinch: f.d || 1, ang: f.ang, my: f.my }); }
+      return;
+    }
     clearTimeout(this.touchTimer);
+    this.showRing(false);
     const t = this.touch;
     this.touch = null;
     if (!t || t.moved || t.long || t.pinch) return;
@@ -213,7 +252,7 @@ export class InputManager {
   /** Called every frame: refresh hover text (throttled). */
   update() {
     const g = this.game;
-    if (!this.mouse.inside || g.ui.menu.open) return;
+    if (!this.mouse.inside || g.ui.menu.open || g.renderer.skipped) return;
     const now = performance.now();
     if (now - this.lastHover < 90) return;
     this.lastHover = now;

@@ -185,7 +185,9 @@ function rollDamage(attacker, defender, type, kind, opts = {}) {
   max = Math.floor(max * (opts.damage || 1));
   const hit = opts.alwaysHit || Math.random() < F.hitChance(a, d);
   if (!hit) return { hit: false, damage: 0, max };
-  let dmg = rand.int(0, max);
+  // Balance: a player's hit that lands always deals at least F.PLAYER_LANDED_MIN (misses are the 0s).
+  // Doubles DPS at max hit 1 (snappy early game), ~+3% at max hit 30. NPC hits keep the 0..max roll.
+  let dmg = rand.int(attacker.type === 'npc' ? 0 : Math.min(F.PLAYER_LANDED_MIN, max), max);
   if (opts.minHitPct) dmg = Math.max(dmg, Math.floor(max * opts.minHitPct));
   return { hit: true, damage: dmg, max };
 }

@@ -59,6 +59,7 @@ class ParticlePool {
 
   emit(x, y, z, vx, vy, vz, color, life, size, gravity = -3, drag = 0, sizeEnd = null) {
     if (this.n >= this.max) return;
+    if (this.thin && Math.random() < this.thin) return; // low graphics preset: fewer particles
     const i = this.n++;
     this.P[i * 3] = x; this.P[i * 3 + 1] = y; this.P[i * 3 + 2] = z;
     this.V[i * 3] = vx; this.V[i * 3 + 1] = vy; this.V[i * 3 + 2] = vz;
@@ -135,6 +136,7 @@ export class Effects {
     rm.scene.add(this.group);
     this.glow = new ParticlePool(rm.scene, 3000, true);
     this.debris = new ParticlePool(rm.scene, 1200, false);
+    this.glow.thin = this.debris.thin = 0;
     this.projectiles = [];
     this.meshes = [];   // timed meshes (rings, beams): {m, t, dur, update}
     this.timers = [];   // [{at, fn}]
@@ -157,6 +159,9 @@ export class Effects {
       this._spec = e;
     });
   }
+
+  /** Particle share 0..1 (graphics preset): 0.5 drops every other spark. */
+  setQuality(q = 1) { this.glow.thin = this.debris.thin = Math.max(0, Math.min(0.9, 1 - q)); }
 
   after(sec, fn) { this.timers.push({ at: this.time + sec, fn }); }
 

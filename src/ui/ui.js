@@ -6,6 +6,7 @@ import { WorldMap } from './worldmap.js';
 import { SidePanel } from './sidepanel.js';
 import { Interfaces } from './interfaces.js';
 import { ContextMenu } from './contextmenu.js';
+import { MobileUI } from './mobile.js';
 import { getSkillIcon } from './icons.js';
 import { el, escapeHtml, fmt } from './util.js';
 import { SKILL_NAMES } from '../core/constants.js';
@@ -31,6 +32,7 @@ export class UIManager {
     this.wildEl = document.getElementById('wild-level');
     this.fpsEl = document.getElementById('fps');
     this.crossEl = document.getElementById('click-cross');
+    this.mobile = new MobileUI(this); // phones / touch: layout classes, sheet, chat fold, Run/Menu buttons
     this.wire();
   }
 
@@ -132,9 +134,18 @@ export class UIManager {
 
   /** Per-frame update. */
   update() {
+    const r = this.game.renderer;
+    if (r.skipped) return; // frame not rendered (hidden tab / frame-rate limit / full-screen map on a phone)
     this.minimap.draw();
     const show = this.game.player.settings.showFps;
     this.fpsEl.style.display = show ? '' : 'none';
-    if (show) this.fpsEl.textContent = `${this.game.renderer.fps} fps`;
+    if (show) {
+      const now = performance.now();
+      if (now - (this._fpsT || 0) > 500) {
+        this._fpsT = now;
+        const info = r.renderer.info.render;
+        this.fpsEl.textContent = `${r.fps} fps · ${(r.cpuMs || 0).toFixed(1)} ms · ${info.calls} calls · ${r.quality?.tier || ''}`;
+      }
+    }
   }
 }

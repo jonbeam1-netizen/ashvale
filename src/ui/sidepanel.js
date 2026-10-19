@@ -48,7 +48,8 @@ export class SidePanel {
       const fkey = { combat: 'F1', skills: 'F2', quests: 'F3', inventory: 'F4', equipment: 'F5', prayer: 'F6', magic: 'F7', friends: 'F8', settings: 'F9' }[id];
       btn.title = fkey ? `${title} (${fkey})` : title;
       btn.innerHTML = `<img alt="" src="${typeof icon === 'function' ? icon() : icon || getShapeIcon('generic', '#888')}">`;
-      btn.onclick = () => this.selectTab(id);
+      btn.dataset.tab = id;
+      btn.onclick = () => this.tabClicked(id);
       const pane = el('div', `tab-pane tab-${id}`);
       pane.style.display = 'none';
       this.content.appendChild(pane);
@@ -66,9 +67,31 @@ export class SidePanel {
 
   getTabElement(id) { return this.tabs.get(id)?.pane || null; }
 
+  /** Tab button: on phones (compact layout) the panel is a sheet - tapping the open tab again folds it away. */
+  tabClicked(id) {
+    if (this.current === id && this.ui.mobile?.compact) { this.collapse(); return; }
+    this.selectTab(id);
+  }
+
+  get collapsed() { return this.current == null; }
+
+  /** Fold the sheet away (compact layout): no tab is current until one is picked again. */
+  collapse() {
+    if (this.current == null) return;
+    this.lastTab = this.current;
+    this.current = null;
+    for (const t of this.tabs.values()) { t.btn.classList.remove('active'); t.pane.style.display = 'none'; }
+    this.root.classList.add('collapsed');
+    this.ui.hideTooltip?.();
+    this.ui.mobile?.onSheet(false);
+  }
+
   selectTab(id) {
     if (!this.tabs.has(id)) return;
+    const wasCollapsed = this.current == null;
     this.current = id;
+    this.root.classList.remove('collapsed');
+    if (wasCollapsed) this.ui.mobile?.onSheet(true);
     for (const t of this.tabs.values()) {
       t.btn.classList.toggle('active', t.id === id);
       t.pane.style.display = t.id === id ? '' : 'none';
@@ -428,10 +451,32 @@ export class SidePanel {
       row.querySelector('input').onchange = (e) => { s[key] = e.target.checked; after?.(); this.game.events.emit('settings:change', { key, value: s[key] }); };
       pane.appendChild(row);
     };
-    toggle('shadows', 'Shadows', () => this.game.renderer.applySettings());
-    this.game.renderer.settingsDefaults?.(s); // graphics (render/renderer.js)
-    toggle('highQuality', 'High quality (glow, colour grading)', () => this.game.renderer.applySettings());
-    toggle('weather', 'Weather effects', () => this.game.renderer.applySettings());
+    const R = this.game.renderer;
+    R.settingsDefaults?.(s); // graphics (render/renderer.js)
+    const select = (label, value, options, onchange) => {
+      const row = el('label', 'set-row set-select', `<span>${label}</span><select>${options.map(([v, t]) => `<option value="${v}">${escapeHtml(t)}</option>`).join('')}</select>`);
+      const sel = row.querySelector('select');
+      sel.value = String(value);
+      sel.onchange = () => onchange(sel.value);
+      pane.appendChild(row);
+      return sel;
+    };
+    // Graphics preset: Auto picks Low on phones, Medium on tablets / small CPUs, High otherwise
+    const autoName = { low: 'Low', medium: 'Medium', high: 'High' }[R.graphicsTier?.({ ...s, graphics: 'auto' }) || 'high'];
+    select('Graphics', s.graphics || 'auto', [['auto', `Auto (${autoName})`], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['custom', 'Custom']], (v) => {
+      R.setGraphics(v);
+      this.game.events.emit('settings:change', { key: 'graphics', value: v });
+      this.refresh('settings');
+    });
+    select('Frame rate', s.fpsCap ?? 0, [['30', '30 fps (battery saver)'], ['60', '60 fps'], ['0', 'Unlimited']], (v) => {
+      s.fpsCap = Number(v);
+      R.applySettings();
+    });
+    // the individual toggles: changing one switches the preset to Custom
+    const custom = () => { if (s.graphics !== 'custom') { s.graphics = 'custom'; this.refresh('settings'); } R.applySettings(); };
+    toggle('shadows', 'Shadows', custom);
+    toggle('highQuality', 'High quality (glow, colour grading)', custom);
+    toggle('weather', 'Weather effects', () => R.applySettings());
     toggle('alwaysDay', 'Always day');
     toggle('roofs', 'Show roofs');
     toggle('xpDrops', 'XP drops');
@@ -441,11 +486,7 @@ export class SidePanel {
     toggle('autoQuality', 'Auto quality (lower settings if slow)');
     if (s.shiftDrop === undefined) s.shiftDrop = true;
     toggle('shiftDrop', 'Shift-click drops items');
-    const dd = el('label', 'set-row', `Draw distance <select><option value="0">Short</option><option value="1">Normal</option><option value="2">Far</option></select>`);
-    const sel = dd.querySelector('select');
-    sel.value = String(s.drawDistance ?? 1);
-    sel.onchange = () => { s.drawDistance = Number(sel.value); this.game.renderer.applySettings(); };
-    pane.appendChild(dd);
+    select('Draw distance', s.drawDistance ?? 1, [['0', 'Short'], ['1', 'Normal'], ['2', 'Far']], (v) => { s.drawDistance = Number(v); custom(); });
     this.game.audio?.renderSettings(pane); // Sound section (src/audio/ui.js)
     const save = el('button', 'btn', 'Save game');
     save.onclick = () => { if (saveGame(this.game)) this.game.message('Game saved.'); };

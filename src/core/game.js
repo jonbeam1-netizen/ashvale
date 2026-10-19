@@ -355,6 +355,9 @@ export class Game {
   moveToward(entity, target, range = 1) {
     if (this.inRange(entity, target, range)) { entity.path = []; return true; }
     const r = target.rect ? target.rect() : { x0: target.x, y0: target.y, x1: target.x, y1: target.y };
+    // A size-1 NPC standing on a player who is attacking it waits for the player to step out: if both re-pathed they
+    // would pick the same neighbour every tick and swap tiles in lockstep forever (seen in 1-wide corridors).
+    if (entity.type === 'npc' && target.combatTarget === entity && (entity.size || 1) === 1 && entity.x >= r.x0 && entity.x <= r.x1 && entity.y >= r.y0 && entity.y <= r.y1) { entity.path = []; return false; }
     const goal = { ...r, mode: range <= 0 ? 'tile' : range === 1 ? 'adjacent' : 'range', range };
     const { path } = findPath(this.world, entity.x, entity.y, goal, { maxNodes: 3000, radius: 40, size: entity.size || 1 });
     entity.path = path;

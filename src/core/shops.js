@@ -29,10 +29,12 @@ export class Shops {
     return this.state.get(shopId);
   }
 
-  /** Price the shop charges for one item. */
+  /** Price the shop charges for one item. A stock entry may carry its own `rate` (overrides def.sellRate),
+   *  used for raw crafting supplies so buy -> craft -> sell/alch is never a money loop (docs/BALANCE.md). */
   buyPrice(shopId, itemId) {
     const def = getShop(shopId), item = getItem(itemId);
-    return Math.max(1, Math.round((item?.value ?? 1) * (def.sellRate ?? 1)));
+    const rate = def.stock?.find((s) => s.id === itemId)?.rate ?? def.sellRate ?? 1;
+    return Math.max(1, Math.round((item?.value ?? 1) * rate));
   }
 
   /** Price the shop pays for one item (0 = won't buy). */

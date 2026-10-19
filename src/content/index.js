@@ -21,3 +21,11 @@ import './slayer.js';
 import './minigames.js';
 import './clues.js';
 import './pets.js';
+// progression: Regional Chronicles + mastery mantles / Hall of Mastery
+import './diaries.js';
+// new-player tutorial: Wayguide Corin, practice dummies, step list
+import './tutorial.js';
+// endgame co-op raid: The Drowned Sun (rooms, monsters, rewards)
+import './raid.js';
+// mid-game dungeon: the Glimmerdeep (levels 40-75; map, monsters, gear) - quests in midgame_quests.js
+import './midgame_dungeon.js';

@@ -6,6 +6,7 @@
 import { registerShop, registerItem } from '../core/registry.js';
 
 const S = (id, qty = 10) => ({ id, qty });
+const R = (id, qty, rate) => ({ id, qty, rate }); // per-item price rate (overrides the shop's sellRate)
 const tierSet = (tier, pieces, qty = 2) => pieces.map((p) => S(`${tier}_${p}`, qty));
 const WEAPONS = ['dagger', 'sword', 'scimitar', 'longsword', 'mace', 'warhammer', 'battleaxe', 'twohand_sword'];
 const ARMOUR = ['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'boots', 'gloves'];
@@ -57,7 +58,7 @@ registerShop({
 registerShop({
   id: 'durnhold_mining', name: 'Deepdelve Supplies', sellRate: 1.0, buyRate: 0.5, restockTicks: 40,
   stock: [S('bronze_pickaxe', 5), S('iron_pickaxe', 5), S('steel_pickaxe', 4), S('duskite_pickaxe', 3), S('verdite_pickaxe', 2), S('azurium_pickaxe', 1),
-    S('hammer', 5), S('chisel', 5), S('coal', 60), S('iron_ore', 30), S('silver_ore', 10), S('gold_ore', 5), S('duskite_ore', 5), S('stonebread', 15)],
+    S('hammer', 5), S('chisel', 5), R('coal', 60, 2.25), R('iron_ore', 30, 2.25), R('silver_ore', 10, 1.6), R('gold_ore', 5, 2), R('duskite_ore', 5, 2.25), S('stonebread', 15)],
 });
 registerShop({
   id: 'durnhold_tavern', name: 'The Stonemug', sellRate: 1.0, buyRate: 0.4, restockTicks: 15,
@@ -91,8 +92,9 @@ registerShop({
 });
 registerShop({
   id: 'ilvaren_jewels', name: 'Starglass Jewels', sellRate: 1.1, buyRate: 0.6, restockTicks: 60,
-  stock: [S('ring_mould', 5), S('necklace_mould', 5), S('amulet_mould', 5), S('gold_bar', 10), S('silver_bar', 10),
-    S('uncut_moonstone', 5), S('uncut_garnet', 4), S('uncut_sunstone', 3), S('uncut_tidestone', 2), S('moonstone', 3), S('garnet', 2), S('sunstone', 1),
+  // raw supplies carry their own price rate (docs/BALANCE.md): buy -> cut/cast -> sell or transmute must not profit
+  stock: [S('ring_mould', 5), S('necklace_mould', 5), S('amulet_mould', 5), R('gold_bar', 10, 2), R('silver_bar', 10, 1.6),
+    R('uncut_moonstone', 5, 4.5), R('uncut_garnet', 4, 6), R('uncut_sunstone', 3, 7.5), R('uncut_tidestone', 2, 8), R('moonstone', 3, 2.5), R('garnet', 2, 2.5), R('sunstone', 1, 2.5),
     S('moonstone_ring', 2), S('garnet_ring', 1), S('moonstone_amulet', 1), S('silver_amulet', 3), S('gold_ring', 3)],
 });
 

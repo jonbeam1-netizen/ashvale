@@ -55,9 +55,9 @@ L('leather_vambraces', 'Leather vambraces', 'hands', 'gloves', 'gloves', LEATHER
 L('leather_body', 'Leather body', 'body', 'chainbody', 'chainbody', LEATHER, { attackMagic: -2, attackRanged: 2, defenceStab: 8, defenceSlash: 9, defenceCrush: 10, defenceMagic: 4, defenceRanged: 9 }, {}, 21);
 L('leather_chaps', 'Leather chaps', 'legs', 'legs', 'platelegs', LEATHER, { attackRanged: 4, defenceStab: 2, defenceSlash: 3, defenceCrush: 3, defenceMagic: 2, defenceRanged: 3 }, {}, 20);
 L('hard_leather_body', 'Hard leather body', 'body', 'chainbody', 'chainbody', HARD, { attackMagic: -4, attackRanged: 6, defenceStab: 12, defenceSlash: 15, defenceCrush: 18, defenceMagic: 6, defenceRanged: 15 }, { defence: 10 }, 170);
-L('leather_coif', 'Leather coif', 'head', 'hood', 'coif', LEATHER, { attackMagic: -1, attackRanged: 2, defenceStab: 2, defenceSlash: 4, defenceCrush: 4, defenceMagic: 3, defenceRanged: 4 }, { ranged: 20 }, 200);
-L('studded_body', 'Studded body', 'body', 'chainbody', 'chainbody', STUD, { attackMagic: -4, attackRanged: 8, defenceStab: 18, defenceSlash: 25, defenceCrush: 22, defenceMagic: 8, defenceRanged: 25 }, { ranged: 20, defence: 20 }, 850);
-L('studded_chaps', 'Studded chaps', 'legs', 'legs', 'platelegs', STUD, { attackMagic: -5, attackRanged: 6, defenceStab: 15, defenceSlash: 16, defenceCrush: 17, defenceMagic: 6, defenceRanged: 16 }, { ranged: 20 }, 750);
+L('leather_coif', 'Leather coif', 'head', 'hood', 'coif', LEATHER, { attackMagic: -1, attackRanged: 2, defenceStab: 2, defenceSlash: 4, defenceCrush: 4, defenceMagic: 3, defenceRanged: 4 }, { ranged: 20 }, 25);
+L('studded_body', 'Studded body', 'body', 'chainbody', 'chainbody', STUD, { attackMagic: -4, attackRanged: 8, defenceStab: 18, defenceSlash: 25, defenceCrush: 22, defenceMagic: 8, defenceRanged: 25 }, { ranged: 20, defence: 20 }, 400);
+L('studded_chaps', 'Studded chaps', 'legs', 'legs', 'platelegs', STUD, { attackMagic: -5, attackRanged: 6, defenceStab: 15, defenceSlash: 16, defenceCrush: 17, defenceMagic: 6, defenceRanged: 16 }, { ranged: 20 }, 350);
 
 const sew = (id, level, xp, inputs, extra = {}) => recipe({ id: `sew_${id}`, skill: 'crafting', category: 'leather', level, xp, tools: ['needle'], thread: 1, ticks: 3, inputs, outputs: [{ id, qty: 1 }], verb: 'sew', ...extra });
 sew('leather_gloves', 1, 13.8, [{ id: 'leather', qty: 1 }]);

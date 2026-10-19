@@ -38,10 +38,19 @@ const SECTIONS = [
     ['Key', 'Show or hide each kind of icon: banks, shops, quests, altars, furnaces, anvils, dungeons, agility, slayer masters, transport.'],
   ]],
   ['Touch screens', [
-    ['Tap', 'Same as a left-click.'],
-    ['Press and hold', 'Opens the right-click menu.'],
-    ['One-finger drag', 'Turn the camera.'],
-    ['Pinch', 'Zoom in and out.'],
+    ['Tap', 'Same as a left-click: walk, or do the main action.'],
+    ['Press and hold', 'Opens the right-click menu (a ring fills while you hold). Works on items, the bank, shops and equipment too.'],
+    ['One-finger drag', 'Turn and tilt the camera.'],
+    ['Two fingers', 'Pinch to zoom, twist to turn the camera, slide up or down to tilt it.'],
+    ['Tab bar', 'Tap a tab to open it; tap it again to fold the panel away.'],
+    ['Chat', 'Tap the chat line (or the arrow above it) to open the chat; tap the arrow again to fold it.'],
+    ['Menu button', 'World map, emotes, settings, chronicles, collection log and these tips.'],
+    ['Run button', 'Switch running on or off (the number is your run energy).'],
+  ]],
+  ['Graphics & battery', [
+    ['Graphics', 'Settings > Graphics: Auto picks Low on phones, Medium on tablets and small laptops, High otherwise. Low = no shadows or glow, shorter view, fewer particles.'],
+    ['Frame rate', 'Settings > Frame rate: 30 fps saves battery, 60 fps is smoother. The game stops drawing while the tab is hidden.'],
+    ['Auto quality', 'If the game keeps running slowly, graphics are lowered one step at a time (you are told in chat).'],
   ]],
   ['Playing with friends', [
     ['Host', 'Open the Multiplayer tab (smiley face, F8) and press Host World.'],

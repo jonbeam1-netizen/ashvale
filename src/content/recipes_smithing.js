@@ -9,13 +9,13 @@ const COL = Object.fromEntries(METAL_TIERS.map((t) => [t.id, t.color]));
 
 /** Smithing tiers. level = smithing level to smelt and to forge the cheapest piece. */
 export const SMITH_TIERS = [
-  { id: 'bronze', name: 'Bronze', level: 1, smeltXp: 6.2, barXp: 12.5, value: 8, ores: [['copper_ore', 1], ['tin_ore', 1]] },
-  { id: 'iron', name: 'Iron', level: 15, smeltXp: 12.5, barXp: 25, value: 28, ores: [['iron_ore', 1]], failChance: 0.5 },
-  { id: 'steel', name: 'Steel', level: 30, smeltXp: 17.5, barXp: 37.5, value: 100, ores: [['iron_ore', 1], ['coal', 2]] },
-  { id: 'duskite', name: 'Duskite', level: 50, smeltXp: 30, barXp: 50, value: 300, ores: [['duskite_ore', 1], ['coal', 4]] },
-  { id: 'verdite', name: 'Verdite', level: 70, smeltXp: 37.5, barXp: 62.5, value: 640, ores: [['verdite_ore', 1], ['coal', 5]] },
-  { id: 'azurium', name: 'Azurium', level: 85, smeltXp: 50, barXp: 75, value: 2500, ores: [['azurium_ore', 1], ['coal', 6]] },
-  { id: 'emberite', name: 'Emberite', level: 92, smeltXp: 65, barXp: 90, value: 6000, ores: [['emberite_ore', 1], ['coal', 8]] },
+  { id: 'bronze', name: 'Bronze', level: 1, smeltXp: 6.2, barXp: 12.5, value: 20, ores: [['copper_ore', 1], ['tin_ore', 1]] },
+  { id: 'iron', name: 'Iron', level: 15, smeltXp: 12.5, barXp: 25, value: 70, ores: [['iron_ore', 1]], failChance: 0.5 },
+  { id: 'steel', name: 'Steel', level: 30, smeltXp: 17.5, barXp: 37.5, value: 250, ores: [['iron_ore', 1], ['coal', 2]] },
+  { id: 'duskite', name: 'Duskite', level: 50, smeltXp: 30, barXp: 50, value: 600, ores: [['duskite_ore', 1], ['coal', 4]] },
+  { id: 'verdite', name: 'Verdite', level: 70, smeltXp: 37.5, barXp: 62.5, value: 1600, ores: [['verdite_ore', 1], ['coal', 5]] },
+  { id: 'azurium', name: 'Azurium', level: 85, smeltXp: 50, barXp: 75, value: 4000, ores: [['azurium_ore', 1], ['coal', 6]] },
+  { id: 'emberite', name: 'Emberite', level: 92, smeltXp: 65, barXp: 90, value: 10000, ores: [['emberite_ore', 1], ['coal', 8]] },
 ];
 
 /** Anvil pieces: [piece, level offset, bars, qty made, display name]. Order = interface order. */

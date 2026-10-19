@@ -58,16 +58,16 @@ const spot = (id, examine, options, data) => {
   registerData('fishing', id, data);
 };
 const NET = { tool: 'small_net', verb: 'net', startMsg: 'You cast out your net...', catches: [
-  { id: 'raw_minnow', level: 1, xp: 10, chance: [48, 256] },
+  { id: 'raw_minnow', level: 1, xp: 10, chance: [112, 256] },
   { id: 'raw_silverling', level: 15, xp: 40, chance: [24, 128] }] };
 const BAIT_SEA = { tool: 'fishing_rod', bait: 'fishing_bait', verb: 'bait', startMsg: 'You cast out your line...', catches: [
-  { id: 'raw_perch', level: 5, xp: 20, chance: [32, 192] },
+  { id: 'raw_perch', level: 5, xp: 20, chance: [64, 192] },
   { id: 'raw_mudgill', level: 10, xp: 30, chance: [24, 128] }] };
 const LURE = { tool: 'fly_rod', bait: 'feather', verb: 'lure', startMsg: 'You cast out your line...', catches: [
   { id: 'raw_streamdart', level: 20, xp: 50, chance: [32, 192] },
   { id: 'raw_rosefin', level: 30, xp: 70, chance: [16, 96] }] };
 const BAIT_RIVER = { tool: 'fishing_rod', bait: 'fishing_bait', verb: 'bait', startMsg: 'You cast out your line...', catches: [
-  { id: 'raw_perch', level: 5, xp: 20, chance: [32, 192] },
+  { id: 'raw_perch', level: 5, xp: 20, chance: [64, 192] },
   { id: 'raw_mudgill', level: 10, xp: 30, chance: [24, 128] }] };
 const CAGE = { tool: 'fishing_cage', verb: 'cage', startMsg: 'You attempt to catch a rockclaw.', catches: [
   { id: 'raw_rockclaw', level: 40, xp: 90, chance: [6, 95] }] };

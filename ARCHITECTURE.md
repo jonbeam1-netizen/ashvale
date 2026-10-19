@@ -274,7 +274,7 @@ registerRecipe({
 ```js
 registerShop({ id, name, currency: 'coins', sellRate: 1.0 /* price = value*sellRate */,
   buyRate: 0.4 /* shop pays value*buyRate */, general: false /* buys any tradeable */,
-  restockTicks: 20, stock: [{ id: 'bronze_axe', qty: 5 }] });
+  restockTicks: 20, stock: [{ id: 'bronze_axe', qty: 5 }, { id: 'uncut_garnet', qty: 4, rate: 6 /* per-item price rate, overrides sellRate */ }] });
 ```
 Runtime: `game.shops.stock(id)`, `buyPrice(id,item)`, `sellPrice(id,item)`, `buy(player,id,item,n)`,
 `sell(player,id,item,n)`; event `'shop:change' {shopId}`.
@@ -320,7 +320,7 @@ building floors → liquids (water lowered, blocked) → sandy shores → border
 areas → spawn rules in order.
 
 `setMapConfig({ width: 288, height: 256, seed, baseTerrain: 'grass', waterLevel: 0, hillAmplitude,
-spawn: {x,y}, respawn: {x,y}, wildernessEdgeY: 48, shores: true })` (current world: **288 × 256**, spawn and
+spawn: {x,y}, respawn: {x,y}, wildernessEdgeY: 48, shores: true })` (current world: **288 × 288** - `map.js` sets 288 × 256, `midgame_dungeon.js` adds the sealed band `y 256–287`; spawn and
 respawn `(96,141)` in Brackenford's square).
 
 Where things are placed: `map.js` + `map_regions/*.js` paint terrain and place scenery/buildings (and the
@@ -383,13 +383,14 @@ both orthogonals free; returns path to closest reachable tile if blocked).
 `game.pathTo` / `moveToward` / `wander`), and `game.inRange` measures between footprints like
 `combat_formulas.inAttackRange` (melee = a footprint edge cardinally touching the target, never overlapping).
 Idle wanderers don't step onto another NPC's footprint (per-tick occupancy grid, `game.npcOccupied(npc, x, y)`);
-chasing / returning / forced movement is never held up by it. At world build `game.makeRoomForBigNpcs()` removes
+chasing / returning / forced movement is never held up by it. A size-1 NPC standing on its (player) target holds still in
+`game.moveToward` so the player steps out (both re-pathing made them swap tiles in lockstep forever in 1-wide corridors). At world build `game.makeRoomForBigNpcs()` removes
 blocking *decorative* scenery (no options, not structural) from the wander area of any large NPC whose footprint
 fits on fewer than half of its wander tiles (e.g. the 4×4 lair bosses boxed in by lava rocks / pines);
 deterministic, so all multiplayer peers build the same world. On a multiplayer joiner shared NPCs just follow the
 host's (already valid) positions.
 
-### Current layout (288×256)
+### Current layout (288×288)
 The original 192×192 vale is unchanged; the world grew **east** (x 192–287) and **south** (y 192–255).
 Region code: `src/content/map.js` (base + order) and `src/content/map_regions/*.js` (wilderness, vale,
 coast, east, dungeons). Decorative templates are `dec_*` in `content/scenery_models.js`, object defs in
@@ -443,7 +444,8 @@ Faelwood `(241–287, 49–128)` with elven town **Ilvaren** `(252–282, 66–1
 Gloomhollow); Crypt of Morrow's Rest `(0–60, 224–255)`; Highmarch Sewers `(61–141, 224–255)` (also an outflow
 pipe on the Silverrun bank `(121,105)`); Hollowpick Mine `(142–212, 224–255)`; Sandswallowed Vaults
 `(213–270, 224–255)`; Starcaller's Study `(271–287, 224–255)` (lit interior); Cinder Depths `(252–287, 0–29)`
-— inside the Wilderness (levels 19–46), multi.
+— inside the Wilderness (levels 19–46), multi. **The Glimmerdeep** (mid-game, §19) fills `x 0–207` of the extra sealed band
+`y 256–287` (`x 208–287` of that band is still free void) - sinkhole entrance north-east of the Whisperstones `(84,88)`.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -650,6 +652,22 @@ dialogue options. Ctrl+click = run (walk if run is on) for one trip; Shift+click
 (`settings.shiftDrop`, default on). The Settings tab has a **Controls & tips** window (`ui/help.js`) – keep it
 in sync when adding controls.
 
+**Phones & touch (`ui/mobile.js`, `game.ui.mobile`).** Sets classes on `<html>` that `css/style.css` keys off:
+`touch` (touch screen: finger-sized context menu rows with a Cancel row, bigger close buttons, 16 px inputs so iOS
+doesn't zoom, no hover text), `m` (compact phone layout: width ≤ 600 or height ≤ 500) + `portrait` / `landscape`,
+`sheet-open`, `chat-open`, `chat-overlay`, `kb-open` / `kb-chat` / `kb-side` (on-screen keyboard; the focused
+field's panel moves above it), and CSS vars `--stack` / `--stack-w` (what the side panel covers) and `--kb`, plus
+safe-area insets (`viewport-fit=cover`). Compact layout: the side panel's tab bar is always visible (portrait: along
+the bottom; landscape: a 2-column rail on the right) and its content is a sheet – tapping the open tab again folds
+it (`side.collapse()`; then `side.current` is `null`, `side.lastTab` remembers it). Settings and Emotes live in the
+floating **Menu** button (world map, emotes, settings, multiplayer, chronicles, collection log, hiscores, chat, face
+north, Controls & tips); a floating **Run** button shows energy. The chat folds to its last line (tap to unfold);
+dialogue / make-X / prompts unfold it. Windows fill the free area and scroll; windows that don't need the inventory
+fold the sheet away, bank/shop bring the inventory up beside them. Press-and-hold anywhere in the DOM UI dispatches
+a synthetic `contextmenu` (so every `oncontextmenu` handler works on iOS too) and swallows the following click;
+page pinch / double-tap zoom and overscroll bounce are blocked. Character creation stacks on phones with the
+Enter button pinned, and an invite link (`?join=`) says which world you'll join.
+
 **World map** (`ui/worldmap.js`, `game.ui.worldMap`): button under the minimap / Alt+M. Cached base images
 (the minimap image split into *Surface* and *Underground* – every `dungeon: true` area – layers, Wilderness
 tinted per 10 levels), area labels from `allAreas()`, icons derived once from the world: objects with a
@@ -799,7 +817,8 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
 * Characters: rigs of pivot groups with merged meshes; procedural animation per rig kind
   (`biped quad spider bird bat`). Overlays (hitsplats, HP bars, overhead text, name tags) are DOM.
 * Camera: arrow keys / middle-drag rotate, wheel zooms, compass resets north. Touch (`input.js`): tap = left-click,
-  press-and-hold = right-click menu, one-finger drag rotates, pinch zooms. Phones (< 600 px wide) get a stacked HUD.
+  press-and-hold = right-click menu (a ring fills while holding), one-finger drag rotates/tilts, two fingers: pinch
+  zooms, twist rotates, slide up/down tilts. Phones get the compact layout (§8 *Phones & touch*).
 * Performance: scenery is instanced per variant *per 32-tile chunk* and chunks beyond the fog are hidden;
   characters further than 48 tiles are not updated/drawn. `RenderManager.autoQuality()` turns shadows off and
   then shortens the draw distance after ~5 s below 30 fps (Settings > Auto quality). Typical cost on a desktop GPU:
@@ -832,7 +851,23 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   (element guessed from the colour: fire/water/earth/wind/holy/arcane), arrows fly as shafts; extra kinds `'impact'`,
   `'prayer'`, `'special'`; prayer activation and special attacks are picked up from `'prayer:change'` /
   `'special:change'`.
-* **High quality** (Settings, default on for desktop, off on phones): post pass (`render/post.js`: MSAA half-float
+* **Graphics presets** (`GRAPHICS_PRESETS` in `renderer.js`, Settings > Graphics: Auto / Low / Medium / High /
+  Custom; `s.graphics`). Auto = `deviceTier()`: phones (coarse pointer + small screen), ≤ 2 GB or ≤ 2 cores → Low;
+  tablets, ≤ 4 GB or ≤ 4 cores → Medium; else High; auto quality lowers it one step at a time (`s.autoCap`).
+  Low: pixel ratio 1, no shadows / post / CSS vignette, 2 pooled lights, 30 % weather and 50 % effect particles,
+  short draw distance with the camera clipped just past the fog (far terrain culled), cheap water (no glints /
+  shore noise, `CHEAP_WATER` define), characters drawn within 36 tiles. Medium: pixel ratio 1.25, 1024 shadows
+  (only characters within 14 tiles cast them – the shadow pass is per mesh), 4 lights, no post. High: the old
+  desktop default. Picking a preset sets the Shadows / High quality / Draw distance toggles; touching one of those
+  switches to Custom (= the pre-preset behaviour). Old saves: phones → Auto, others → Auto if their toggles match
+  else Custom. **Frame rate** (`s.fpsCap`: 30 / 60 / 0 = unlimited; default 60 on phones): `renderer.skipFrame()`
+  also skips while the tab is hidden, while the full-screen world map is open on a phone and paces to ~15 fps
+  behind character creation (`renderer.minFrameMs`); `renderer.skipped` makes `ui.update` / `input.update` return
+  early. Game ticks are unaffected. Settings > Show FPS also shows CPU ms per frame, draw calls and the tier.
+  Measured (375×812 at DPR 2, Brackenford square, desktop CPU): Low 2.0 ms / 128 calls / 70k tris / 375×812 px;
+  Medium 3.3 ms / 697 calls / 577k tris / 468×1015; High 3.5 ms / 1162 calls / 593k tris / 562×1218 + post; the
+  old phone default (hq off, shadows on) was 3.3 ms / 1155 calls / 594k tris / 468×1015.
+* **High quality** (Settings, default on for desktop, off on phones; part of the presets above): post pass (`render/post.js`: MSAA half-float
   target, small two-level bloom, colour grading by time of day, vignette), 2048 shadow map, 8 pooled lights, full
   particle counts, pixel ratio ≤ 1.5 (else ≤ 1.25 and a CSS vignette).
 
@@ -918,3 +953,135 @@ helpers: `hook(fn)` runs at systems init, `stageOf/flags/has/give/take`, `questN
 
   Quest bosses are spawned per player at run time (`respawn: false`) and are never shared over the network.
   Quest-changed scenery (relit beacon, mended orrery…) is re-applied on `'game:ready'` from the saved stage.
+
+---------------------------------------------------------------------------------------------------
+
+## 16. Progression & UI polish (`game.progress`)
+
+Files: `src/systems/progress.js` (init, publishes `game.progress`) + helpers `progress_ui.js` (injected CSS; wraps the
+Skills / Quests / Settings tab renderers instead of replacing them), `progress_xptracker.js`, `progress_collection.js`,
+`progress_chronicles.js`, `progress_mastery.js`; window `src/ui/skillguide.js`; data `src/content/diaries.js` (+ `mastery.js`).
+
+* **Skill guides** – click a skill in the Skills tab (or `game.progress.openSkillGuide(skill)`). Entries are generated from
+  the registries (item `requirements`, recipes by skill/category, `woodcutting mining fishing hunter farming agility
+  agility_course pickpocket thieving_* firemaking runebinding construction bones herb tools` data, spells, prayers, NPC
+  `slayerLevel`, quests via `def.skillRequirements` or `QUEST_SKILL_REQS` in skillguide.js, mastery mantles). Skill tooltips add progress %.
+* **XP tracker** – overlay toggled by Settings > *XP tracker overlay* (`settings.xpTracker`), the small `XP` button by the
+  XP drops, or the Skills tab button. Session-only XP, XP/h, actions and time to level, Reset.
+* **Collection log** – `player.store('collection') = {items, kc, riddles}`. Sources are derived on first use: `boss` NPCs and
+  `slayerLevel` NPCs (non-stackable tertiary drops ≤ 6 % / 2 %, items with `unique: npcId`, pets with `source.npc`), other
+  monsters' rare tertiaries (grouped by identical item sets), Crucible (cape + exchange stock), Wardens' Rest (`wardenSet`),
+  riddle tiers (`riddles` config rare/megaRare), pets. **Add sources** with
+  `registerData('collection_source', id, { cat, name, items: [ids], kc?: [npcIds], order? })`. Gains are counted through a
+  wrapper around `game.giveItem`, `'item:pickup'` and `'pet:get'`; new uniques emit `'collection:new' {player, id}`.
+* **Regional Chronicles** – `registerData('chronicle_region', id, { name, order, town, rects, perk, tiers: {easy, medium,
+  hard} })` (task types listed at the top of `content/diaries.js`; checked from gathering/production/agility/thieving/
+  hunter/magic/quest/slayer/riddle/area/wilderness/interaction events). State `player.store('chronicles')`. Rewards are
+  claimed in the Chronicles window (Quests tab): `chronicle_<region>_<1..3>` neck medallion (+2/4/6 % XP in the region's
+  perk skills, region teleport 1/3/unlimited per day), Lamps of Insight and coins. `game.progress.chronicles.validate()`
+  lists task targets missing from the registries. Events `'chronicle:task'`, `'chronicle:tier'`, `'chronicle:claim'`.
+* **Mastery** – `mastery_cape_<skill>` ("Mantle of the …", requirement 99) sold for 99,000 coins (+ `mastery_cape_max`,
+  990,000, all 99s) by Hallmaster Corvane (`mastery_keeper`, Highmarch house at `(171,87)`; Talk-to / Trade). Equipment
+  option `Flourish`. Level-99 and total-level milestone messages (100, 250, 500 … 2277); `store('progress').lastTotal`.
+* **Hiscores** – Skills tab button / click the total-level cell: own skills, totals, quest points, chronicle and collection
+  counts, and session players (snapshot field `totalLevel`).
+
+---------------------------------------------------------------------------------------------------
+
+## 17. Balance & new-player tutorial
+
+**Balance** – numbers, method and every tuning change are in `docs/BALANCE.md`. Rules worth knowing when adding content:
+a player's hit that passes the accuracy roll deals 1..max (`PLAYER_LANDED_MIN`, NPC hits stay 0..max); shops must
+never sell an input for less than what its crafted output sells/transmutes for (use a stock entry `rate` for raw
+supplies); bar values are ≥ 0.57 × the best per-bar value of any smithed piece.
+
+**Tutorial** (`src/content/tutorial.js` data + NPCs, `src/systems/tutorial.js` runtime, `game.tutorial`). Starts only for a
+character created this session (no save existed when systems initialised); existing saves are never forced into it.
+Wayguide Corin (`tutorial_guide`, `(94,139)`) can start it on request; two practice dummies (`practice_dummy`, combat
+level 0 = never retaliate) stand west of him. Steps are `registerData('tutorial', 'steps', [...])` entries
+`{ id, title, text, event, match(payload, ctx), poll(ctx), ui, world, onStart }` that complete from real events
+(`player:walk`, `dialogue:end`, `gathering:log|fish|ore`, `production:make`, `equip`, `npc:death`, `ui:open`) or a per-tick
+poll (camera moved, Quest List tab open). `ui` = `tab:<id>` / `quest:<id>` / `minimap` / CSS selector (highlight + bouncing
+arrow; text only if the element is missing); `world` = `{npc}` / `{object, near}` / `{x,y}` (minimap flag via
+`game.ui.worldMap.setMarker` + "N tiles <dir>" hint). Flow: walk → camera → talk to guide → chop → fire → fish → cook → mine
+copper+tin → smelt → smith → wield → kill a dummy/monster → open bank → Quest List → Lost Ledger journal → starter bundle
+(`registerData('tutorial','reward')`, once). State: `player.store('tutorial') = { status: active|done|skipped, step, data, rewarded }`;
+skipping (double-click "Skip tutorial", or via the guide) is permanent.
+
+---------------------------------------------------------------------------------------------------
+
+## 18. Endgame co-op raid: The Drowned Sun
+
+Files: `src/content/raid.js` (geometry, map, monster pool, scenery/telegraph templates, Seeker dialogue),
+`src/content/raid_items.js` (relics, specials, supplies, Sunling pet, ornament kits), `src/systems/raid.js` (state, multiplayer,
+doors, HUD, `game.raid`), `src/systems/raid_rooms.js` (puzzle, waves, bosses, telegraphs), `src/systems/raid_rewards.js` (chest,
+cistern supplies, kits, gear passives).
+
+* **Where.** Sunken Stair `(279,166)` in the south-east Sunscar Badlands (Seeker Ilsabet Corran explains it, `Rewards` shows the
+  relic table). Six walled chambers in free void pockets of the sealed band, each its own area `raid_<key>` (priority 30,
+  `dungeon`, `multi` except the lobby, `safeDeath` → Antechamber): Antechamber `(56–64,238–254)`, Hall of Prisms `(213–230,239–254)`,
+  Sunsworn Barracks `(11–28,242–254)`, Gallery of the Twin Soul `(197–216,225–232)`, Drowned Cistern `(138–146,225–233)`, Throne
+  of Aurvael `(138–158,239–254)`. Chambers link by `raid_door` (onward, once cleared) and `raid_return` (back to the Antechamber).
+* **Rooms.** Prisms: rotate mirrors (`raid_mirror_0/1`, generated per run) until the sunbeam hits the dawn receptor. Barracks:
+  3 waves (+1 monster per extra player). Sentinel: Ember soul (magic attacks, immune to magic) / Gale soul (ranged, immune to
+  ranged), switching every 5 attacks; soulfire 3×3 under every player. Cistern: fish/pick/cook/brew raid-only supplies
+  (`raidSupply`, removed on leaving), shrine restores prayer. Aurvael: P1 solar bolts + sunfall; P2 at 66% eclipse shield until
+  its thralls die, tide shards + light beams across rows/columns; P3 at 33% enraged, alternating sun/tide every 4 attacks;
+  final eclipse at 15% (stand in the golden circles).
+* **Multiplayer.** The authority (offline, or the session HOST) owns `S` (run id, room started/cleared, party size fixed at the
+  gate from the players in the Antechamber, team points, puzzle, wave, soul, phase/shield) and broadcasts it as `raid:s`;
+  joiners mirror it and send intents `raid:i` (`start`, `room`, `rot`, `death`). Telegraphs are host-decided `raid:m`
+  (`{k:'tg', s, r: rects, d, lo, hi, rm, inv}`), drawn by every client, each damaging only its own player. Monsters are a
+  **fixed pool of map spawns** (`SLOTS`, hidden until needed) so `net/npcs.js` gives them stable shared ids – the host simulates
+  them, joiners fight their mirrors as usual. They are not `aggressive`: the host picks the nearest player in their own chamber.
+  HP scales with party size (`SCALE`, own `maxHp` property on the Npc). Boss/Sentinel variants are def swaps with identical
+  attack-list order, so replayed attack indices match on every client. A joiner leaving the session drops back to its lobby.
+* **Rewards** are personal: each client opens the reliquary and rolls from the shared team points
+  (`personal = pts × (1 + 0.2(n−1)) / n`, unique chance `min(50%, personal / 80 000)`), once per run id. Relics (level 80):
+  Dawnrend (`sunder`), Hymnstring (`solar_volley`), Eclipse staff (`corona`), Sunwrought helm/cuirass/greaves (set: −10% damage
+  from monsters), Aegis of the Sunken Choir (dragonfire ward), Ring of the Seventh Hymn (+50% spec regen); Dawnfire/Tidewrought
+  ornament kits (`<id>_or`, `Dismantle` reverts); Sunling pet (1/40). State `player.store('raid')` = `{kc, best, chests,
+  claimed: [runIds], uniques}`. Events: `raid:start`, `raid:room`, `raid:complete`, `raid:reward`, `minigame:reward {id:'drowned_sun'}`.
+* **Testing:** `game.raid.debug.kit()` (99 combat + relic loadout), `.start()`, `.solve()`, `.room('throne')`, `.killAll()`, `.reset()`.
+
+---------------------------------------------------------------------------------------------------
+
+## 19. Mid-game: the Glimmerdeep (combat ~40–75) + four quests
+
+Files: `src/content/midgame_common.js` (coordinates `GD`, helpers: telegraph, freeTileNear), `midgame_dungeon.js` (world band,
+terrain, areas, scenery, transitions, resources, agility shortcuts, lore, spawns; imported by `content/index.js`, imports the next
+two), `midgame_monsters.js` (NPCs, drop tables, boss mechanics), `midgame_items.js` (gear, sporehide recipes, item effects,
+`collection_source` `glimmerdeep`), `midgame_quests.js` (imported by `content/quests.js`: quest NPCs, gates, puzzles).
+
+* **World** – `setMapConfig({ height: 288 })`; the band `y 256–287` is void rock like the other sealed pockets. Areas
+  `glimmerdeep` (x 0–207, prio 9) + `gd_galleries` / `gd_sporewood` / `gd_emberworks` (prio 10), `gd_heartrot` and `gd_heartforge`
+  (prio 11, multi). All `dungeon: true` (Underground world-map layer).
+* **Level 1 – Drowned Galleries `(2–66, 257–285)`**: rope from the sinkhole `(84,88)` → camp with a cooking range `(8,262)`;
+  drowned delver 41, gillback raider 48, silt slug 50 (Slayer 40, *slugs*), drowned keener 62 (Slayer 50, *hags*: earmuffs);
+  harpoon/bait pool in the flooded hall; sluice chamber (quest 18); rubble-slope shortcut (Agility 48).
+  Drowned stairway `(44,280)` → level 2 after *Below the Silverrun*.
+* **Level 2 – the Sporewood `(72–136, 257–285)`**: sporecap crawler 51 (Slayer 45, *crawlers*), gloomcap weaver 56, mycelid
+  shambler 62; the Old Delve mining (coal, gold, duskite, iron, silver) + quest glimmer seam; root bridge (Agility 58) into the
+  Heartrot; **Vorlagh the Sporebound** (74, mid-boss, not aggressive): rot-bloom telegraphs (every 15 ticks), sporelings at 66 % / 33 %
+  heal him while alive. Lanternwright hatch `(122,259)` → level 3 after *The Lantern Lock*; root ladder `(79,284)` ↔ Thornwood
+  hollow ironbark `(65,127)` after *Rot at the Roots*.
+* **Level 3 – the Emberworks `(146–206, 257–285)`**: working furnace + anvils, slag hound 67, Lanternwright shade 69, cinderhorn
+  lizard 74 (Slayer 55, *glarehorns*), forge sentinel 74 (two on a lava-moated island = ranged/magic safe-spot); slag ledge
+  (Agility 66); Heart-gate `(188,277)` (after the quest-21 cipher) → **the Ashwright Engine** (96, boss, 3×3): vent telegraphs
+  every 12 ticks, heat-shield below 50 % (damage ×0.5, HP 180) dropped for 30 ticks by turning one of four `gd_valve`s (60-tick refill),
+  two slag hounds at 25 %.
+* **Gear** (levels 35–45, between the duskite and azurium tiers): sporehide coif/body/chaps/vambraces (Ranged 35, sewn from
+  `sporehide`, Crafting 48–53), tidewoven hood/robe top/bottom (Magic 45), Lanternwright's almanac (off-hand, Magic 40),
+  Forgefather's hammer (Attack 45, `constructBane` +15 % vs golems/elementals), slagweave gauntlets (Defence 45), sporeward amulet
+  (`poisonWard`: cures / blocks poison), emberheart ring (`lastStand`: +10 % damage below half HP). Effects live in `midgame_items.js`.
+* **Quests** (all `completeStage` 100):
+
+| id | Name | Start | Unlocks |
+|---|---|---|---|
+| `below_silverrun` | Below the Silverrun (Intermediate) | Ferrywarden Hesk Callow, Silverrun bridge `(117,137)` | Sporewood |
+| `rot_at_roots` | Rot at the Roots (Intermediate) | Forester Bryn Ashgrove, Thornwood `(63,126)` – needs 18 | root-hollow shortcut |
+| `lantern_lock` | The Lantern Lock (Intermediate) | Quarrymaster Odo Flint, Greystone `(50,82)` – needs 18 | Emberworks |
+| `last_lanternwright` | The Last Lanternwright (Experienced) | Archivist Sabelle Venn, Highmarch `(168,67)` – needs 19 + 20 | Heart Forge |
+
+  Quest-changed scenery (open hatch, dimmed caps) is re-applied on `'game:ready'`.
+

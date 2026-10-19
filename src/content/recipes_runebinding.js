@@ -14,11 +14,11 @@ export const BINDING = [
   { sigil: 'earth_sigil', name: 'Earth', level: 9, xp: 6.5, multiples: [26, 52, 78], glow: '#8a5a2a', pos: [62, 99] },
   { sigil: 'fire_sigil', name: 'Fire', level: 14, xp: 7, multiples: [35, 70], glow: '#ff5020', pos: [140, 176] },
   { sigil: 'thorn_sigil', name: 'Thorn', level: 20, xp: 7.5, multiples: [46, 92], glow: '#3aa040', pos: [65, 120] },
-  { sigil: 'rift_sigil', name: 'Rift', level: 35, xp: 8.5, multiples: [74], glow: '#c060ff', pos: [115, 39], wild: true },
-  { sigil: 'nexus_sigil', name: 'Nexus', level: 54, xp: 9.5, multiples: [], glow: '#60e0e0', pos: [175, 129] },
-  { sigil: 'void_sigil', name: 'Void', level: 65, xp: 10, multiples: [], glow: '#30303a', pos: [63, 26], wild: true },
-  { sigil: 'aether_sigil', name: 'Aether', level: 77, xp: 10.5, multiples: [], glow: '#f0f0a0', pos: [26, 171] },
-  { sigil: 'crimson_sigil', name: 'Crimson', level: 90, xp: 11.5, multiples: [], glow: '#b01828', pos: [139, 8], wild: true },
+  { sigil: 'rift_sigil', name: 'Rift', level: 35, xp: 9.5, multiples: [74], glow: '#c060ff', pos: [115, 39], wild: true },
+  { sigil: 'nexus_sigil', name: 'Nexus', level: 54, xp: 12, multiples: [], glow: '#60e0e0', pos: [175, 129] },
+  { sigil: 'void_sigil', name: 'Void', level: 65, xp: 15, multiples: [], glow: '#30303a', pos: [63, 26], wild: true },
+  { sigil: 'aether_sigil', name: 'Aether', level: 77, xp: 18, multiples: [], glow: '#f0f0a0', pos: [26, 171] },
+  { sigil: 'crimson_sigil', name: 'Crimson', level: 90, xp: 23, multiples: [], glow: '#b01828', pos: [139, 8], wild: true },
 ];
 
 for (const b of BINDING) {

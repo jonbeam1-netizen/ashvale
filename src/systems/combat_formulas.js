@@ -30,6 +30,9 @@ export const ATTACK_KEY = { stab: 'attackStab', slash: 'attackSlash', crush: 'at
 export const DEF_KEY = { stab: 'defenceStab', slash: 'defenceSlash', crush: 'defenceCrush', magic: 'defenceMagic', ranged: 'defenceRanged' };
 export const MELEE_TYPES = new Set(['stab', 'slash', 'crush']);
 
+/** Balance (docs/BALANCE.md): minimum damage of a player's hit that passed the accuracy roll. */
+export const PLAYER_LANDED_MIN = 1;
+
 /** 'stab'|'slash'|'crush' -> 'melee'; 'ranged' / 'magic' unchanged (damage type for applyDamage). */
 export const damageType = (t) => (MELEE_TYPES.has(t) || t === 'melee' ? 'melee' : t);
 

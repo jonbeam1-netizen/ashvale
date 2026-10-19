@@ -39,7 +39,7 @@ registerShop({
 });
 registerShop({
   id: 'brackenford_crafting', name: "Ilsa's Craft Supplies", sellRate: 1.0, buyRate: 0.5, restockTicks: 20,
-  stock: [S('needle', 10), S('thread', 100), S('chisel', 10), S('ring_mould', 5), S('necklace_mould', 5), S('amulet_mould', 5), S('leather', 20), S('cowhide', 0), S('clay', 20), S('uncut_moonstone', 2)],
+  stock: [S('needle', 10), S('thread', 100), S('chisel', 10), S('ring_mould', 5), S('necklace_mould', 5), S('amulet_mould', 5), S('leather', 20), S('cowhide', 0), S('clay', 20), { id: 'uncut_moonstone', qty: 2, rate: 4.5 }],
 });
 registerShop({
   id: 'brackenford_magic', name: "Orrin's Arcana", sellRate: 1.0, buyRate: 0.5, restockTicks: 10,

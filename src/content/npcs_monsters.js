@@ -44,9 +44,9 @@ const fire = (maxHit, weight = 1, color = '#ff6020') => ({ style: 'magic', maxHi
 // Critters & beasts
 // =================================================================================================
 m({ id: 'chicken', name: 'Chicken', examine: 'Yep, definitely a chicken.', stats: { attack: 1, strength: 1, defence: 1, hitpoints: 3 }, respawnTicks: 25, slayerCategory: 'birds', model: { template: 'chicken' } });
-m({ id: 'cow', name: 'Cow', examine: 'Converts grass to beef.', stats: { attack: 1, strength: 1, defence: 1, hitpoints: 8 }, respawnTicks: 30, slayerCategory: 'cows', model: { template: 'cow' } });
+m({ id: 'cow', name: 'Cow', examine: 'Converts grass to beef.', stats: { attack: 1, strength: 1, defence: 1, hitpoints: 6 }, combatLevel: 2, respawnTicks: 30, slayerCategory: 'cows', model: { template: 'cow' } });
 m({ id: 'giant_rat', name: 'Giant rat', examine: 'Overgrown vermin.', aggressive: true, aggroRange: 2, attackStyle: 'stab',
-  stats: { attack: 2, strength: 3, defence: 2, hitpoints: 5 }, respawnTicks: 25, slayerCategory: 'rats', model: { template: 'rat', scale: 1.3 } });
+  stats: { attack: 2, strength: 3, defence: 2, hitpoints: 4 }, combatLevel: 3, respawnTicks: 25, slayerCategory: 'rats', model: { template: 'rat', scale: 1.3 } });
 m({ id: 'marsh_toad', name: 'Marsh toad', examine: 'A fat toad with a surprisingly nasty bite.', attackStyle: 'crush',
   stats: { attack: 4, strength: 3, defence: 3, hitpoints: 7 }, slayerCategory: 'toads', model: { template: 'toad', scale: 0.9, colors: { body: '#5a6a2a', belly: '#c8c890' } } });
 m({ id: 'saltmarsh_crab', name: 'Saltmarsh crab', examine: 'It snaps its claws at anything that moves.', attackStyle: 'crush', aggressive: true, aggroRange: 2,
@@ -83,7 +83,7 @@ m({ id: 'gloom_widow', name: 'Gloom widow', examine: 'A spider the size of a car
 // =================================================================================================
 // Goblin-kin
 // =================================================================================================
-m({ id: 'goblin', name: 'Goblin', examine: 'An ugly green creature.', stats: { attack: 1, strength: 1, defence: 1, hitpoints: 5 }, respawnTicks: 30, slayerCategory: 'goblins',
+m({ id: 'goblin', name: 'Goblin', examine: 'An ugly green creature.', stats: { attack: 1, strength: 1, defence: 1, hitpoints: 4 }, combatLevel: 2, respawnTicks: 30, slayerCategory: 'goblins',
   model: { template: 'goblin', equipment: { weapon: 'bronze_dagger' } } });
 m({ id: 'goblin_scout', name: 'Goblin scout', examine: 'Twitchy, with a crooked little bow.', attackStyle: 'ranged', attackRange: 6, projectileColor: '#c8a060', aggressive: true, aggroRange: 5,
   stats: { attack: 2, strength: 2, defence: 3, ranged: 8, hitpoints: 8 }, slayerCategory: 'goblins',

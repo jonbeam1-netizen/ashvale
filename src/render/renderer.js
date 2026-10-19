@@ -24,6 +24,30 @@ const CAVE = { top: C('#080605'), horizon: C('#1c1612'), fog: C('#16110d'), ligh
 const WILD_RATIO = Object.fromEntries(Object.keys(DAY).map((k) => [k, new THREE.Color(WILD[k].r / DAY[k].r, WILD[k].g / DAY[k].g, WILD[k].b / DAY[k].b)]));
 const VIEW_RADIUS = 48;
 const isMobile = () => (window.matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900) || window.innerWidth < 600;
+
+/**
+ * Graphics presets (Settings > Graphics). 'auto' picks one from the device (deviceTier) and lets auto quality step
+ * it down; 'custom' = the individual toggles (shadows / high quality / draw distance) exactly as set.
+ *   dpr: pixel-ratio cap · post: bloom/grading pass · lights: pooled PointLights · weather/fx: particle share ·
+ *   draw: draw distance index · cull: clip the camera just past the fog · cheapWater: no glints/noise · view: char radius ·
+ *   charShadow: only characters within this many tiles cast shadows (0 = all)
+ */
+export const GRAPHICS_PRESETS = {
+  low: { label: 'Low', dpr: 1, shadows: false, post: false, shadowMap: 1024, lights: 2, weather: 0.3, fx: 0.5, draw: 0, cull: true, cheapWater: true, view: 36 },
+  medium: { label: 'Medium', dpr: 1.25, shadows: true, post: false, shadowMap: 1024, lights: 4, weather: 0.55, fx: 1, draw: 1, cull: false, cheapWater: false, view: VIEW_RADIUS, charShadow: 14 },
+  high: { label: 'High', dpr: 1.5, shadows: true, post: true, shadowMap: 2048, lights: 8, weather: 1, fx: 1, draw: 1, cull: false, cheapWater: false, view: VIEW_RADIUS },
+};
+const TIERS = ['low', 'medium', 'high'];
+
+/** Best preset for this device: phones / low memory -> low, tablets / small CPUs -> medium, else high. */
+export function deviceTier() {
+  const coarse = !!window.matchMedia?.('(pointer: coarse)').matches;
+  const small = Math.min(screen.width, screen.height);
+  const mem = navigator.deviceMemory || 8, cores = navigator.hardwareConcurrency || 8;
+  if ((coarse && small < 600) || window.innerWidth < 600 || mem <= 2 || cores <= 2) return 'low';
+  if ((coarse && small < 1100) || mem <= 4 || cores <= 4) return 'medium';
+  return 'high';
+}
 const lum = (c) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
 const _col = new THREE.Color(), _col2 = new THREE.Color(), _v = new THREE.Vector3();
 
@@ -32,10 +56,16 @@ export class RenderManager {
     this.game = game;
     this.container = container;
     this.mobile = isMobile();
+    this.tier = deviceTier();
+    this.viewRadius = VIEW_RADIUS;
+    this.fpsCap = 0;
+    this._lastFrame = 0;
+    this.skipped = false;
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.info.autoReset = false; // reset once per frame (frame()), so post-processing passes are counted too
     container.appendChild(r.domElement);
     r.domElement.id = 'game-canvas';
 
@@ -125,44 +155,108 @@ export class RenderManager {
 
   /** Settings defaults that depend on the device (called before reading them). */
   settingsDefaults(s) {
+    if (s.graphics === undefined) {
+      // older saves: phones move to Auto; on other devices keep hand-tuned toggles as 'custom'
+      const t = GRAPHICS_PRESETS[this.tier];
+      const hq = s.highQuality === undefined ? !this.mobile : !!s.highQuality;
+      const same = hq === t.post && !!s.shadows === t.shadows && (s.drawDistance ?? 1) === t.draw;
+      s.graphics = this.mobile || same || s.highQuality === undefined ? 'auto' : 'custom';
+    }
     if (s.highQuality === undefined) s.highQuality = !this.mobile;
     if (s.alwaysDay === undefined) s.alwaysDay = false;
     if (s.weather === undefined) s.weather = true;
+    if (s.fpsCap === undefined) s.fpsCap = this.mobile ? 60 : 0;
+  }
+
+  /** The preset in effect ('low' | 'medium' | 'high') or null for 'custom'. */
+  graphicsTier(s = this.game.player.settings) {
+    if (s.graphics === 'custom') return null;
+    if (GRAPHICS_PRESETS[s.graphics]) return s.graphics;
+    // auto: the device tier, possibly lowered by auto quality (s.autoCap)
+    const cap = TIERS.indexOf(s.autoCap);
+    return TIERS[Math.min(TIERS.indexOf(this.tier), cap < 0 ? 2 : cap)];
+  }
+
+  /** Choose a graphics preset ('auto' | 'low' | 'medium' | 'high' | 'custom') and apply it. */
+  setGraphics(name) {
+    const s = this.game.player.settings;
+    s.graphics = name;
+    if (name === 'auto') delete s.autoCap;
+    this.applySettings();
   }
 
   applySettings() {
     const s = this.game.player.settings;
     this.settingsDefaults(s);
+    const tier = this.graphicsTier(s);
+    const P = tier ? GRAPHICS_PRESETS[tier] : null;
+    if (P) { s.highQuality = P.post; s.shadows = P.shadows; s.drawDistance = P.draw; } // toggles mirror the preset
     const hq = !!s.highQuality;
+    // custom = the pre-preset behaviour: high quality decides pixel ratio, lights and particles
+    const Q = P || { dpr: hq ? 1.5 : 1.25, shadowMap: hq ? 2048 : 1024, lights: hq ? 8 : 4, weather: hq ? 1 : 0.55, fx: 1, cull: false, cheapWater: false, view: VIEW_RADIUS };
+    this.quality = { tier: tier || 'custom', ...Q };
     this.renderer.shadowMap.enabled = !!s.shadows;
     this.sun.castShadow = !!s.shadows;
-    const sm = hq ? 2048 : 1024;
+    const sm = Q.shadowMap;
     if (this.sun.shadow.mapSize.x !== sm) { this.sun.shadow.mapSize.set(sm, sm); this.sun.shadow.map?.dispose(); this.sun.shadow.map = null; }
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, hq ? 1.5 : 1.25));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.dpr));
     this.resize();
-    const n = hq ? 8 : 4;
+    const n = Q.lights;
     if (this.lights.pool.length !== n) this.lights.setCount(n);
-    this.weather.quality = hq ? 1 : 0.55;
+    this.weather.quality = Q.weather;
     this.weather.enabled = s.weather !== false;
+    this.effects.setQuality?.(Q.fx);
+    this.terrain.setCheapWater?.(Q.cheapWater);
+    this.viewRadius = Q.view;
+    this.shadowRadius = Q.charShadow || 0;
+    if (!this.shadowRadius) for (const v of this.views.values()) if (v._sh === false) this.charShadow(v, true);
     if (hq && !this.post) this.post = new PostFX(this.renderer);
     if (!hq && this.post) { this.post.dispose(); this.post = null; }
-    this.vignette.style.display = hq ? 'none' : '';
+    this.vignette.style.display = hq || tier === 'low' ? 'none' : '';
     this.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
     const dd = [0.75, 1, 1.4][s.drawDistance ?? 1] || 1;
     this.drawScale = dd;
+    // Low: clip the camera just past the fog so far terrain chunks are culled (the sky dome shrinks to fit)
+    const far = Q.cull ? 95 * dd + 30 : 500;
+    if (this.camera.far !== far) { this.camera.far = far; this.camera.updateProjectionMatrix(); this.sky.scale.setScalar(Math.min(1, (far * 0.9) / 400)); }
+    this.fpsCap = Number(s.fpsCap) || 0;
   }
 
   /**
-   * Auto quality: if the game keeps running below ~30 fps (visible tab, game started), turn high quality off,
-   * then shadows, then shorten the draw distance, telling the player once each. Settings > 'Auto quality' disables it.
+   * Frame pacing: true when this animation frame should not render (tab hidden, the world map covers the whole
+   * screen on a phone, or the frame-rate limit says wait). Ticks keep running regardless.
+   */
+  skipFrame(now) {
+    if (document.hidden) return true;
+    const wm = this.game.ui?.worldMap;
+    if (wm?.isOpen && document.documentElement.classList.contains('m')) return true;
+    const cap = this.minFrameMs ? Math.min(this.fpsCap || 1000, 1000 / this.minFrameMs) : this.fpsCap; // minFrameMs: e.g. behind character creation
+    if (!cap) return false;
+    const iv = 1000 / cap;
+    if (now - this._lastFrame < iv - 2) return true; // 2 ms slack for rAF jitter
+    this._lastFrame = Math.max(this._lastFrame + iv, now - iv);
+    return false;
+  }
+
+  /**
+   * Auto quality: if the game keeps running below ~30 fps (visible tab, game started), step the graphics preset
+   * down (High -> Medium -> Low); with custom settings turn high quality off, then shadows, then shorten the draw
+   * distance, telling the player once each. Settings > 'Auto quality' disables it.
    */
   autoQuality() {
     const g = this.game, s = g.player?.settings;
     if (!s || !g.started || document.hidden || s.autoQuality === false) { this._slow = 0; return; }
-    if (this.fps >= 30) { this._slow = Math.max(0, (this._slow || 0) - 1); return; }
+    const slowBelow = Math.min(this.mobile ? 26 : 30, this.fpsCap ? this.fpsCap - 4 : 99);
+    if (this.fps >= slowBelow) { this._slow = Math.max(0, (this._slow || 0) - 1); return; }
     if (++this._slow < 10) return; // ~5 s of sustained low frame rate
     this._slow = 0;
-    if (s.highQuality) {
+    const tier = this.graphicsTier(s);
+    if (tier) {
+      if (tier === 'low') return;
+      const next = TIERS[TIERS.indexOf(tier) - 1];
+      if (s.graphics === 'auto') s.autoCap = next; else s.graphics = next;
+      g.message(`<col=8a5a00>The game was running slowly, so graphics were lowered to ${GRAPHICS_PRESETS[next].label} (Settings tab to change).</col>`);
+    } else if (s.highQuality) {
       s.highQuality = false;
       g.message('<col=8a5a00>The game was running slowly, so high quality graphics were turned off (Settings tab to change).</col>');
     } else if (s.shadows) {
@@ -269,6 +363,17 @@ export class RenderManager {
   }
 
   frame() {
+    // input.update / ui.update read `skipped` too, so a skipped frame costs (almost) nothing
+    this.skipped = this.skipFrame(performance.now());
+    if (this.skipped) return;
+    const t0 = performance.now();
+    this._frame();
+    // CPU time of the last rendered frames (exponential average, ms) - Settings > Show FPS
+    this.cpuMs = (this.cpuMs ?? 0) * 0.9 + (performance.now() - t0) * 0.1;
+  }
+
+  _frame() {
+    this.renderer.info.reset();
     const dt = Math.min(0.1, this.clock.getDelta());
     this.time += dt;
     GLOBAL.uTime.value = this.time;
@@ -283,11 +388,13 @@ export class RenderManager {
 
     // characters (cull by distance from the player)
     const visible = [];
+    const VR = this.viewRadius;
+    const SR = this.shadowRadius; // medium: only characters near the player cast shadows (the shadow pass is per mesh)
     for (const v of this.views.values()) {
       const e = v.entity;
-      if (Math.abs(e.x - p.x) > VIEW_RADIUS || Math.abs(e.y - p.y) > VIEW_RADIUS) { v.group.visible = false; continue; }
+      if (Math.abs(e.x - p.x) > VR || Math.abs(e.y - p.y) > VR) { v.group.visible = false; continue; }
       v.update(dt, this.time, alpha, now);
-      if (v.group.visible) visible.push(v);
+      if (v.group.visible) { visible.push(v); if (SR) this.charShadow(v, Math.abs(e.x - p.x) <= SR && Math.abs(e.y - p.y) <= SR); }
     }
 
     // camera follows the interpolated player position
@@ -317,6 +424,14 @@ export class RenderManager {
     if (this.post) this.post.render(this.scene, this.camera);
     else this.renderer.render(this.scene, this.camera);
     this.overlays.update(visible, now);
+  }
+
+  /** Turn a character's shadow casting on/off (only touches its meshes when the state or the rig changes). */
+  charShadow(v, on) {
+    if (v.meshes !== v._shMeshes) { v._shMeshes = v.meshes; v._sh = true; } // rebuilt rig: casts by default
+    if (on === v._sh || !v.meshes) return;
+    v._sh = on;
+    for (const m of v.meshes) m.castShadow = on;
   }
 
   /** Project a world position to screen pixels. */

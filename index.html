@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#1c1813">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Ashvale</title>
   <meta name="description" content="Ashvale - a browser adventure in a low-poly fantasy world.">
   <link rel="icon" href="favicon.ico">
@@ -16,7 +20,7 @@
     // nothing is versioned so edits show up without bumping; add ?cachebust to test the deploy path locally.
     (function () {
       /* BUILD:modules */
-      var BUILD = "20261019-145756";
+      var BUILD = "20261019-163610";
       var MODULES = [
         "src/main.js",
         "src/core/weapontypes.js",
@@ -50,6 +54,10 @@
         "src/content/minigames.js",
         "src/content/clues.js",
         "src/content/pets.js",
+        "src/content/diaries.js",
+        "src/content/tutorial.js",
+        "src/content/raid.js",
+        "src/content/midgame_dungeon.js",
         "src/core/events.js",
         "src/core/interactions.js",
         "src/core/actions.js",
@@ -76,6 +84,7 @@
         "src/ui/sidepanel.js",
         "src/ui/interfaces.js",
         "src/ui/contextmenu.js",
+        "src/ui/mobile.js",
         "src/ui/icons.js",
         "src/ui/util.js",
         "src/render/models.js",
@@ -94,6 +103,9 @@
         "src/systems/clues.js",
         "src/systems/pets.js",
         "src/systems/emotes.js",
+        "src/systems/progress.js",
+        "src/systems/tutorial.js",
+        "src/systems/raid.js",
         "src/net/session.js",
         "src/net/trade.js",
         "src/net/panel.js",
@@ -142,7 +154,13 @@
         "src/content/quests_more.js",
         "src/content/quests_east.js",
         "src/content/quests_east2.js",
+        "src/content/midgame_quests.js",
         "src/content/agility_models.js",
+        "src/content/mastery.js",
+        "src/content/raid_items.js",
+        "src/content/midgame_common.js",
+        "src/content/midgame_items.js",
+        "src/content/midgame_monsters.js",
         "src/world/world.js",
         "src/core/rng.js",
         "src/core/skills.js",
@@ -163,6 +181,14 @@
         "src/systems/runebinding.js",
         "src/systems/construction.js",
         "src/systems/magic_utility.js",
+        "src/ui/skillguide.js",
+        "src/systems/progress_ui.js",
+        "src/systems/progress_xptracker.js",
+        "src/systems/progress_collection.js",
+        "src/systems/progress_chronicles.js",
+        "src/systems/progress_mastery.js",
+        "src/systems/raid_rooms.js",
+        "src/systems/raid_rewards.js",
         "src/audio/themes.js",
         "src/content/map_regions/util.js",
         "src/content/quest_util.js",

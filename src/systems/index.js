@@ -26,3 +26,13 @@ export function initSystems(game) {
     try { mod.init?.(game); } catch (e) { console.error(`[systems] ${name}.init failed`, e); }
   }
 }
+
+// progression & UI polish (skill guides, XP tracker, collection log, Regional Chronicles, mastery)
+import * as progress from './progress.js';
+Object.assign(SYSTEMS, { progress });
+// new-player tutorial (guide panel, highlights, starter bundle)
+import * as tutorial from './tutorial.js';
+Object.assign(SYSTEMS, { tutorial });
+// endgame co-op raid: The Drowned Sun (state, multiplayer, chambers, rewards)
+import * as raid from './raid.js';
+Object.assign(SYSTEMS, { raid });

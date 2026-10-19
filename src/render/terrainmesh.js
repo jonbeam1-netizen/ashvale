@@ -51,18 +51,24 @@ function liquidMaterial(kind) {
         float vd = clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
         float fres = pow(1.0 - vd, 2.5);
         vec3 wc = mix(uShallow, uDeep, smoothstep(0.15, 1.1, vDepth));
+        #ifdef CHEAP_WATER
+        float shore = vShore;
+        #else
         float n1 = sin(vWPos.x * 2.3 + uTime * 0.9 + sin(vWPos.z * 1.7 + uTime * 0.6) * 1.5);
         float shore = vShore + n1 * 0.12;
+        #endif
         float band = fract(vShore * 1.6 - uTime * 0.22);
         float foam = smoothstep(0.8, 0.98, shore) * 0.7 + vShore * vShore * smoothstep(0.0, 0.05, band) * smoothstep(0.2, 0.08, band) * 0.55;
         foam = clamp(foam, 0.0, 0.85);
         diffuseColor.rgb = mix(wc, uFoam, foam);
         diffuseColor.a = mix(diffuseColor.a, 0.96, foam);
         totalEmissiveRadiance += uSky * (fres * 0.35 + 0.04) * (1.0 - foam);
+        #ifndef CHEAP_WATER
         vec2 cell = floor(vWPos.xz * 5.0);
         float hsh = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
         float tw = sin(uTime * (1.5 + hsh * 3.0) + hsh * 60.0);
         totalEmissiveRadiance += vec3(step(0.94, hsh) * smoothstep(0.8, 1.0, tw) * uSpark * (1.0 - foam) * 0.9);
+        #endif
       }`;
     shader.fragmentShader = decl + shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' + body);
   };
@@ -188,6 +194,14 @@ export class TerrainMesh {
       chunk.liquids.push(lm);
     }
     this.chunks.push(chunk);
+  }
+
+  /** Low graphics: water without sun glints / shoreline noise (one define, recompiles the water shader once). */
+  setCheapWater(on) {
+    const m = this.liquidMats.water;
+    if (!!m.defines?.CHEAP_WATER === !!on) return;
+    m.defines = on ? { CHEAP_WATER: '' } : {};
+    m.needsUpdate = true;
   }
 
   update(time) {

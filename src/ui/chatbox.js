@@ -28,7 +28,12 @@ export class Chatbox {
       b.onclick = () => { this.filter = id; [...this.tabs.children].forEach((c) => c.classList.toggle('active', c === b)); this.applyFilter(); };
       this.tabs.appendChild(b);
     }
-    this.root.append(this.body, this.overlay, this.tabs);
+    // phones: the chat folds to its last line; this button (and a tap on the folded line) toggles it
+    this.foldBtn = el('button', 'chat-fold', '<span></span>');
+    this.foldBtn.title = 'Show / hide chat';
+    this.foldBtn.onclick = (e) => { e.stopPropagation(); this.ui.mobile?.toggleChat(); };
+    this.root.addEventListener('click', () => { if (this.root.classList.contains('folded')) this.ui.mobile?.toggleChat(true); });
+    this.root.append(this.body, this.overlay, this.tabs, this.foldBtn);
 
     this.input.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -87,6 +92,8 @@ export class Chatbox {
     this.overlay.innerHTML = '';
     this.overlay.classList.remove('hidden');
     this.body.classList.add('hidden');
+    this.root.classList.add('has-overlay');
+    this.ui.mobile?.onChatOverlay(true);
     return this.overlay;
   }
 
@@ -94,6 +101,8 @@ export class Chatbox {
     this.overlay.classList.add('hidden');
     this.overlay.innerHTML = '';
     this.body.classList.remove('hidden');
+    this.root.classList.remove('has-overlay');
+    this.ui.mobile?.onChatOverlay(false);
     this.log.scrollTop = this.log.scrollHeight;
   }
 }

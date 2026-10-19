@@ -24,14 +24,21 @@ export function showCharacterCreation() {
     const panel = el('div', 'cc-panel');
     panel.appendChild(el('div', 'cc-title', 'Welcome to Ashvale'));
     panel.appendChild(el('div', 'cc-sub', 'Create your adventurer'));
+    // opened from a friend's invite link: say what happens next
+    const join = new URLSearchParams(location.search).get('join');
+    if (join) panel.appendChild(el('div', 'cc-join', `You're joining a friend's world (<b>${String(join).replace(/[^A-Za-z0-9-]/g, '').slice(0, 24).toUpperCase()}</b>). Make your character and you'll join them straight away.`));
     const row = el('div', 'cc-row');
     const prev = el('div', 'cc-preview');
     const opts = el('div', 'cc-opts');
     row.append(prev, opts);
     panel.appendChild(row);
 
-    // preview renderer
-    const W = 220, H = 280;
+    // preview renderer (smaller on phones; the 3D world behind renders at ~15 fps meanwhile)
+    const compact = document.documentElement.classList.contains('m');
+    const W = compact ? 112 : 220, H = compact ? 144 : 280;
+    const touch = document.documentElement.classList.contains('touch');
+    const rm = window.game?.renderer;
+    if (rm) rm.minFrameMs = 66;
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     r.setSize(W, H);
@@ -75,6 +82,10 @@ export function showCharacterCreation() {
     const name = el('input', 'cc-name');
     name.maxLength = 12;
     name.placeholder = 'Adventurer';
+    name.autocomplete = 'off';
+    name.spellcheck = false;
+    name.setAttribute('autocapitalize', 'words');
+    name.setAttribute('enterkeyhint', 'go');
     name.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(); });
     nameRow.appendChild(name);
     opts.appendChild(nameRow);
@@ -107,14 +118,18 @@ export function showCharacterCreation() {
     }
     const go = el('button', 'btn cc-go', 'Enter Ashvale');
     const err = el('div', 'cc-err');
-    panel.append(err, go);
+    const foot = el('div', 'cc-foot');
+    foot.append(err, go);
+    panel.append(foot);
     root.appendChild(panel);
-    setTimeout(() => name.focus(), 50);
+    if (!touch) setTimeout(() => name.focus(), 50); // phones: don't pop the keyboard over the screen
 
     function done() {
       const n = name.value.trim() || 'Adventurer';
       if (!/^[A-Za-z0-9 _-]{1,12}$/.test(n)) { err.textContent = 'Names may only use letters, numbers, spaces, - and _.'; return; }
       alive = false;
+      name.blur();
+      if (rm) rm.minFrameMs = 0;
       r.dispose();
       root.style.display = 'none';
       root.innerHTML = '';
