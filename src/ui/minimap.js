@@ -8,6 +8,19 @@ import { el } from './util.js';
 const S = 4;          // pixels per tile in the minimap image
 const SIZE = 164;     // minimap canvas size (css px)
 
+// Small inline-SVG icons drawn over each status orb (24×24 viewBox).
+const svg = (body) => `<svg viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+const ORB_GLYPHS = {
+  // heart
+  hp: svg('<path d="M12 20.5 4.2 13A4.9 4.9 0 0 1 12 6.6a4.9 4.9 0 0 1 7.8 6.4Z"/>'),
+  // radiant star (devotion)
+  prayer: svg('<path d="M12 2.5l1.9 5.6 5.7-1.9-3.4 4.8 4.3 3-5.6.6.1 5.9L12 16.3l-3 4.2.1-5.9-5.6-.6 4.3-3-3.4-4.8 5.7 1.9Z"/>'),
+  // boot
+  run: svg('<path d="M8 3.5h6l-.6 8.2 5.1 2.3c1.5.7 2 1.7 2 3.2V19H4.2l.6-3.1L8 13.2Z"/><path d="M4 20.5h17" stroke-width="1.6" fill="none"/>'),
+  // sword
+  spec: svg('<path d="M18.7 3.3h2v2L10.4 15.6 8.4 13.6Z"/><path d="M5.6 12.8l5.6 5.6-1.4 1.4-1.8-1.8-2.9 2.9-1.4-1.4 2.9-2.9-1.8-1.8Z"/>'),
+};
+
 // How scenery shows on the minimap. Object defs may override with `minimap: '#rrggbb' | 'wall' | 'tree' |
 // 'rock' | 'bush' | 'fence' | 'door' | 'block' | false`.
 const KIND_BY_TEMPLATE = {
@@ -45,10 +58,10 @@ export class Minimap {
     this.compass.onclick = () => this.game.renderer.cameraCtl.resetNorth();
     this.wrap.append(this.canvas, this.compass);
     this.orbs = {};
-    const orbDefs = [['hp', 'Hitpoints'], ['prayer', 'Prayer'], ['run', 'Run energy'], ['spec', 'Special attack']];
+    const orbDefs = [['hp', 'Hitpoints'], ['prayer', 'Prayer'], ['run', 'Run energy (click or Alt+R to toggle)'], ['spec', 'Special attack']];
     const orbCol = el('div', 'orbs');
     for (const [id, title] of orbDefs) {
-      const o = el('div', `orb orb-${id}`, '<div class="orb-num"></div><div class="orb-ball"><div class="orb-fill"></div><div class="orb-glyph"></div></div>');
+      const o = el('div', `orb orb-${id}`, `<div class="orb-num"></div><div class="orb-ball"><div class="orb-fill"></div><div class="orb-glyph">${ORB_GLYPHS[id]}</div></div>`);
       o.title = title;
       orbCol.appendChild(o);
       this.orbs[id] = { root: o, num: o.querySelector('.orb-num'), fill: o.querySelector('.orb-fill') };

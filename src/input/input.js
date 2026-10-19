@@ -89,6 +89,8 @@ export class InputManager {
     if (e.target instanceof HTMLInputElement) return;
     const fkeys = { F1: 'combat', F2: 'skills', F3: 'quests', F4: 'inventory', F5: 'equipment', F6: 'prayer', F7: 'magic', F8: 'friends', F9: 'settings' };
     if (fkeys[e.key]) { e.preventDefault(); this.game.ui.selectTab(fkeys[e.key]); }
+    // Alt+R toggles run (plain letters focus the chat input, so the shortcut needs a modifier)
+    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyR') { e.preventDefault(); this.game.toggleRun(); }
   }
 
   /** Display name for an entity with its OSRS-style colour. */
