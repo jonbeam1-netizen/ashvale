@@ -1086,3 +1086,29 @@ two), `midgame_monsters.js` (NPCs, drop tables, boss mechanics), `midgame_items.
 
   Quest-changed scenery (open hatch, dimmed caps) is re-applied on `'game:ready'`.
 
+
+---------------------------------------------------------------------------------------------------
+
+## 20. Team PvP minigame (planned "Bannerfall") – status & next steps
+
+**Status:** design done, engine hooks landed, **no gameplay files yet** (nothing reachable in game). Hooks (all inert until used):
+* `systems/pvp.js` – `game.pvp.zones` (push `{ rule(remote) -> {ok, reason} | null, accepts(fromRemote) -> bool }`) and
+  `game.pvp.zoneRule(remote)`. A non-null rule replaces the Wilderness bracket in `bracket()`/`canAttack()`/menus/auto-retaliate and
+  skips skulls in `noteOutgoingAttack`; `accepts` lets `receiveHit` apply a hit outside the Wilderness (team-aware, friendly fire off).
+* `systems/minigames.js` – the generic `'death:safe'` respawn skips areas flagged `customRespawn: true` (owner respawns the player).
+* `render/overlays.js` – remote name tags take `remote.nameColor` (team colours). `render/models.js` – worn weapon shape `banner`.
+* `systems/pets.js` – source label for `minigame:bannerfall`.
+
+**Plan** (reuse the raid's host-authoritative pattern, §18): files `src/content/teamwar.js` (map, items, NPC, shop, pet) +
+`src/systems/teamwar.js` (state, netcode, HUD), appended to the two index files, then `python -I tools/bump_build.py`.
+* Free space: sealed band `x 208–287, y 256–287` (verified empty). Field floor `(209–273, 257–285)`, stream `x 239–243` with bridges at
+  `y 260–262 / 269–273 / 280–282`; west keep (Rooks, red) `x 209–223, y 263–279`, standard `(218,271)`, muster/spawn strip `x 209–212`
+  behind an inner wall `x 213` (gap `y 270–272`); east keep mirrored `x' = 482 − x` (Wrens, blue). Muster Hall lobby `(278–285, 259–266)`.
+  Highmarch: Marshal NPC `(158,85)` + portal `(157,88)` (free tiles verified).
+* Areas: field/spawn `multi`, `safe`, `customRespawn`, `safeDeath` → hall; PvP only field↔field, never in spawn strips.
+* State `S` broadcast as `tw:s` – **must be shallow** (net `cleanPayload` drops anything nested deeper than arrays of primitives):
+  `{m, ph (0 idle/1 prep/2 battle/3 results), left, dur, pr, win, sc[2], bs[2] (0 home/1 carried/2 dropped), bc[2], bx[2], by[2], bt[2],
+  pid[], pn[], pt[], pa[], pk[], pd[], pc[], pv[], pl[]}`. Intents `tw:i` `{a: take|died|quit|join, ...}`; feed `tw:f`; support heal `tw:mend`.
+* Items: on entry stash `inventory/equipment.toJSON()` in `player.store('teamwar').stash` (saved → restored on reload / exit /
+  disconnect / host leaving), then equip untradeable role kits (melee/ranged/magic/support); carrier holds the banner as a 2h weapon.
+  Rewards (untradeable marks) are given after the stash is restored. Block teleports via a `game.wilderness.canTeleport` wrapper.

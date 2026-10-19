@@ -34,6 +34,13 @@ export class Chatbox {
     this.foldBtn.onclick = (e) => { e.stopPropagation(); this.ui.mobile?.toggleChat(); };
     this.root.addEventListener('click', () => { if (this.root.classList.contains('folded')) this.ui.mobile?.toggleChat(true); });
     this.root.append(this.body, this.overlay, this.tabs, this.foldBtn);
+    this.stick = true;
+    this.log.addEventListener('scroll', () => {
+      if (this.log.clientHeight) this.stick = this.log.scrollTop + this.log.clientHeight >= this.log.scrollHeight - 4;
+    }, { passive: true });
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(() => { if (this.stick && this.log.clientHeight) this.log.scrollTop = this.log.scrollHeight; }).observe(this.log);
+    }
 
     this.input.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -70,10 +77,11 @@ export class Chatbox {
     if (from) line.innerHTML = `<span class="chat-from">${escapeHtml(from)}:</span> <span class="chat-text">${markup(text)}</span>`;
     else line.innerHTML = markup(text);
     if (!this.visible(type)) line.style.display = 'none';
-    const atBottom = this.log.scrollTop + this.log.clientHeight >= this.log.scrollHeight - 4;
     this.log.appendChild(line);
     while (this.log.children.length > MAX_LINES) this.log.firstChild.remove();
-    if (atBottom) this.log.scrollTop = this.log.scrollHeight;
+    // `stick` is only cleared by the player scrolling up, so a window resize (which shrinks the log without a
+    // scroll event) or a hidden log no longer freezes the chat on old lines
+    if (this.stick !== false) this.log.scrollTop = this.log.scrollHeight;
   }
 
   visible(type) {

@@ -193,7 +193,7 @@ function sourceText(def) {
   const s = def.source || {};
   const rate = s.chance ? `1/${Math.round(1 / s.chance)}` : '';
   if (s.npc) return `${(Array.isArray(s.npc) ? s.npc : [s.npc]).map((n) => game.registry.getNpc(n)?.name || n).join(', ')} ${rate}`;
-  const ev = { 'gathering:log': 'Woodcutting', 'gathering:ore': 'Mining', 'gathering:fish': 'Fishing', 'minigame:crucible': 'The Crucible', 'minigame:wardens': "Wardens' Rest chest" }[s.event] || s.event;
+  const ev = { 'gathering:log': 'Woodcutting', 'gathering:ore': 'Mining', 'gathering:fish': 'Fishing', 'minigame:crucible': 'The Crucible', 'minigame:wardens': "Wardens' Rest chest", 'minigame:bannerfall': 'Bannerfall' }[s.event] || s.event;
   return `${ev} ${rate}`;
 }
 function hintText(def) {

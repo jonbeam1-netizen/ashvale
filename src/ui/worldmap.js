@@ -11,6 +11,8 @@ import { el, escapeHtml } from './util.js';
 const PX = 4;              // base image pixels per tile (same as the minimap image)
 const MIN_SCALE = 1.2;     // screen px per tile
 const MAX_SCALE = 18;
+// settlements whose names always win label placement
+const MAP_TOWNS = new Set(['Brackenford', 'Highmarch', 'Durnhold', 'Ilvaren', 'Dustwatch', 'Gullhaven', 'Bogwick']);
 
 // Icon categories, in drawing order (later = on top). `def: false` = hidden until ticked in the legend.
 export const MAP_CATEGORIES = [
@@ -355,7 +357,7 @@ export class WorldMap {
     // area labels per layer, biggest first (placement skips labels that would overlap a bigger one)
     const seen = new Map();
     for (const a of allAreas()) {
-      if (!a.name) continue;
+      if (!a.name || (a.priority ?? 0) < 0) continue; // the catch-all 'Ashvale' area would sit on Haverly and hide town names
       const cx = (a.x0 + a.x1 + 1) / 2, cy = (a.y0 + a.y1 + 1) / 2;
       const lay = this.isUnder(Math.floor(cx), Math.floor(cy)) ? 'underground' : 'surface';
       const size = (a.x1 - a.x0 + 1) * (a.y1 - a.y0 + 1);
@@ -364,7 +366,9 @@ export class WorldMap {
       seen.set(key, { name: a.name, cx, cy, w: a.x1 - a.x0 + 1, h: a.y1 - a.y0 + 1, size, lay, wild: !lay.startsWith('u') && w.getWildernessLevel(Math.floor(cx), Math.floor(cy)) > 0 });
     }
     for (const l of seen.values()) this.layers[l.lay].labels.push(l);
-    for (const L of Object.values(this.layers)) L.labels.sort((a, b) => b.size - a.size);
+    // towns are placed first so a neighbouring region (Thornwood) can never hide the starting town's name
+    const rank = (l) => (MAP_TOWNS.has(l.name) ? 1e6 : 0) + l.size;
+    for (const L of Object.values(this.layers)) L.labels.sort((a, b) => rank(b) - rank(a));
     this.icons = this.collectIcons();
   }
 

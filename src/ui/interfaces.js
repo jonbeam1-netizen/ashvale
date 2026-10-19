@@ -194,11 +194,14 @@ export class Interfaces {
     qtys.forEach((q) => {
       const b = el('button', 'mx-q', String(q));
       b.onclick = async () => {
+        let chosen = true;
         if (q === 'X') {
           const n = await this.promptNumberInline(qrow);
-          if (n) { qty = n; this.lastMakeQty = n; }
+          if (n) { qty = n; this.lastMakeQty = n; } else chosen = false;
         } else { qty = q === 'All' ? Infinity : q; this.lastMakeQty = qty; }
         qbtns.forEach((x) => x.classList.toggle('active', x === b));
+        // only one thing to make: a quantity click starts it (new players click "All" and expect it to go)
+        if (chosen && opts.items.length === 1 && this.makeX === mx) mx.pick(0);
       };
       if ((q === 'All' && qty === Infinity) || q === qty) b.classList.add('active');
       qbtns.push(b);

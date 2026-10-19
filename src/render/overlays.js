@@ -55,6 +55,7 @@ export class Overlays {
       // name tag
       it.name.style.display = nameTag ? '' : 'none';
       if (nameTag && it.name.textContent !== e.name) it.name.textContent = e.name;
+      if (nameTag && it.nameColor !== (e.nameColor || '')) { it.nameColor = e.nameColor || ''; it.name.style.color = it.nameColor; } // team colours (Bannerfall)
       // overhead text
       it.text.style.display = text ? '' : 'none';
       if (text) { if (it.text.textContent !== text.text) it.text.textContent = text.text; it.text.style.color = text.color; }

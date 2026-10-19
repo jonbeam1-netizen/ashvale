@@ -464,7 +464,7 @@ export function init(g) {
 
   // safe-death areas (systems/death.js emits 'death:safe' instead of the normal death)
   ev.on('death:safe', ({ player, area }) => {
-    if (player !== game.player) return;
+    if (player !== game.player || area?.customRespawn) return; // customRespawn: the area's owner respawns (Bannerfall)
     if (area?.id === 'crucible') crucibleEnd('death');
     game.schedule(4, () => {
       const to = area?.safeDeath || game.registry.getMapConfig().respawn;

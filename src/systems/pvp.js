@@ -56,9 +56,18 @@ export function initPvp(game) {
 
   const pvp = {
     attackedBy,
+    /**
+     * Other PvP zones (e.g. the Bannerfall battleground, systems/teamwar.js) push
+     * `{ rule(remote) -> {ok, reason} | null, accepts(fromRemote) -> bool }`. A non-null rule replaces the
+     * Wilderness bracket (no skulls); `accepts` lets an incoming hit land outside the Wilderness.
+     */
+    zones: [],
+    zoneRule(remote) { for (const z of pvp.zones) { const r = z.rule?.(remote); if (r) return r; } return null; },
 
     /** Wilderness + level-bracket rule only (no single-way check). */
     bracket(remote) {
+      const zr = pvp.zoneRule(remote);
+      if (zr) return zr;
       const p = game.player;
       const mine = wl(p.x, p.y), theirs = remoteWl(remote);
       if (mine <= 0) return { ok: false, reason: 'You can only fight other players in the Wilderness.' };
@@ -103,6 +112,7 @@ export function initPvp(game) {
     attack(remote) { return game.combat?.attack(remote); },
 
     noteOutgoingAttack(remote) {
+      if (pvp.zoneRule(remote)) return; // zone fights never skull
       const t = tick();
       myAttacks.set(remote.peerId, t);
       const first = attackedBy.get(remote.peerId);
@@ -147,7 +157,7 @@ export function initPvp(game) {
       const p = game.player;
       if (!p || p.dead) return 0;
       // PvP only happens in the Wilderness; hits already in flight when we stepped out still land
-      if (wl(p.x, p.y) <= 0 && tick() - lastWildTick > WILD_GRACE_TICKS) return 0;
+      if (wl(p.x, p.y) <= 0 && tick() - lastWildTick > WILD_GRACE_TICKS && !pvp.zones.some((z) => z.accepts?.(fromRemote))) return 0;
       if (fromRemote?.peerId != null) attackedBy.set(fromRemote.peerId, tick());
       let style = String(data.style || 'melee');
       if (['stab', 'slash', 'crush'].includes(style)) style = 'melee';

@@ -541,6 +541,10 @@ function buildWeapon(v) {
     case 'warhammer': b.box(h, 0.05, 0.65, 0.05, [0, 0.25, 0]); b.box(c, 0.14, 0.14, 0.3, [0, 0.58, 0]); break;
     case 'spear': b.box(h, 0.04, 1.3, 0.04, [0, 0.4, 0]); b.cone(c, 0.06, 0.25, 4, [0, 1.15, 0]); break;
     case 'staff': b.cyl(h, 0.03, 0.035, 1.3, 5, [0, 0.35, 0]); b.add(new THREE.IcosahedronGeometry(0.08, 0), c, [0, 1.05, 0]); break;
+    case 'banner': // carried war banner (Bannerfall): tall pole, crossbar, cloth in `color`, finial in `color2`
+      b.cyl(h, 0.03, 0.035, 1.9, 5, [0, 0.6, 0]); b.box(h, 0.03, 0.03, 0.6, [0, 1.45, 0.28]);
+      b.box(c, 0.02, 0.62, 0.55, [0, 1.12, 0.3], [0, 0, 0], 0.15); b.cone(c, 0.2, 0.22, 3, [0, 0.7, 0.3], [Math.PI, 0, 0], 0.15);
+      b.sphere(c2, 0.07, [0, 1.58, 0]); break;
     case 'bow': {
       const t = new THREE.TorusGeometry(0.42, 0.025, 4, 10, Math.PI * 0.9);
       b.add(t, c, [0, 0, -0.1], [0, Math.PI / 2, Math.PI / 2 + Math.PI * 0.05], 1);
