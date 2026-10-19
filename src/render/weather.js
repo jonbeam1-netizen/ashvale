@@ -19,6 +19,7 @@ const inR = (x, y, x0, y0, x1, y1) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
 export function climateAt(world, x, y) {
   const a = world.getArea(x, y);
   if (a?.dungeon) return 'cave';
+  if (y >= 224) return 'indoor'; // sealed pockets below the map that are lit interiors (Starcaller's Study, crypt rooms)
   if (y < 48) {
     if (y < 12) return 'snow';
     if (inR(x, y, 243, 30, 287, 47) || inR(x, y, 60, 8, 86, 28) || inR(x, y, 134, 18, 160, 42) || inR(x, y, 252, 0, 287, 29)) return 'embers';
@@ -44,6 +45,7 @@ export function weatherFor(climate, now = Date.now()) {
   const r = hash(w, s), r2 = hash(w * 3 + 1, s * 7 + 3);
   switch (climate) {
     case 'cave': return { kind: 'cave', intensity: 1 };
+    case 'indoor': return { kind: 'clear', intensity: 0 };
     case 'snow': return r < 0.3 ? { kind: 'blizzard', intensity: 1 } : { kind: 'snow', intensity: 0.45 + r2 * 0.4 };
     case 'northwild': return r < 0.5 ? { kind: 'snow', intensity: 0.3 + r2 * 0.35 } : { kind: 'ash', intensity: 0.4 };
     case 'mountain': return r < 0.4 ? { kind: 'snow', intensity: 0.35 + r2 * 0.4 } : { kind: 'clear', intensity: 0 };
@@ -272,7 +274,7 @@ export class Weather {
     const lush = climate === 'forest' || climate === 'swamp' || climate === 'temperate';
     if (night > 0.5 && lush && T.rain < 0.6) T.fireflies = climate === 'temperate' ? 0.35 : 1;
     if (night < 0.3 && (climate === 'forest' || climate === 'temperate') && k === 'clear') T.butterflies = 1;
-    this.birdsWanted = night < 0.35 && clear && climate !== 'cave' && climate !== 'snow' && climate !== 'desert';
+    this.birdsWanted = night < 0.35 && clear && climate !== 'cave' && climate !== 'indoor' && climate !== 'snow' && climate !== 'desert';
     this.birdColor = climate === 'coast' ? '#f0f0ea' : (climate === 'ash' || climate === 'embers' || climate === 'forest' && p.y < 48) ? '#18161a' : '#2a2a30';
     this.lightning = k === 'storm';
     this._t = { T, fog, overcast, wind, wet: T.rain > 0 ? 0.4 + T.rain * 0.6 : 0 };

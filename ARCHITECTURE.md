@@ -53,8 +53,8 @@ registry warns on duplicates (later wins). Any module may call `registerSpawn` t
 4. load save (if any) → `RenderManager` → `UIManager` → `InputManager`
 5. `initSystems(game)` – each `src/systems/*.js` `init(game)` in the order of `systems/index.js`
    (magic, prayer, combat, death, wilderness, gathering, production, agility, thieving, slayer, quests)
-6. `net.init(game)` → render loop → character creation (first run only) → `game.start()` → welcome/tips
-   in chat → `'game:ready'`
+6. `net.init(game)` → `initAudio(game)` (§14) → render loop → character creation (first run only) →
+   `game.start()` → welcome/tips in chat → `'game:ready'`
 
 Loading screen: an inline script in `index.html` counts module downloads (PerformanceObserver) into the
 progress bar; `main.js` then reports its phases via `window.ashvaleLoading(text, fraction)` (and
@@ -71,6 +71,12 @@ modules; before starting, the loader fetches `version.json` uncached and, if it 
 a newer `version.json` is announced in chat (checked every 10 min). On localhost / `file:` nothing is versioned
 (`?cachebust` forces the deploy path for testing). **Bump BUILD on deploy: `python tools/bump_build.py`**
 (re-run it after adding modules so they are preloaded and versioned).
+Why it is safe: import-map keys are matched against the *resolved* absolute URL, so every relative import of a
+module (from any file, and the one dynamic `import('../render/daynight.js')` in audio) maps to the same
+`?v=BUILD` URL – one module instance, never two copies of a registry (verified: identical registry counts and
+zero duplicate URLs with `?cachebust`). A module missing from `MODULES` (bump not re-run) still loads, just
+unversioned; a listed module that no longer exists would 404 in the preload, so always re-run the script after
+deleting/renaming files. The version check never blocks boot for more than 2.5 s and reloads at most once.
 
 Systems registered in step 5 override engine defaults from step 3 (see Interactions precedence).
 
@@ -377,7 +383,11 @@ both orthogonals free; returns path to closest reachable tile if blocked).
 `game.pathTo` / `moveToward` / `wander`), and `game.inRange` measures between footprints like
 `combat_formulas.inAttackRange` (melee = a footprint edge cardinally touching the target, never overlapping).
 Idle wanderers don't step onto another NPC's footprint (per-tick occupancy grid, `game.npcOccupied(npc, x, y)`);
-chasing / returning / forced movement is never held up by it.
+chasing / returning / forced movement is never held up by it. At world build `game.makeRoomForBigNpcs()` removes
+blocking *decorative* scenery (no options, not structural) from the wander area of any large NPC whose footprint
+fits on fewer than half of its wander tiles (e.g. the 4×4 lair bosses boxed in by lava rocks / pines);
+deterministic, so all multiplayer peers build the same world. On a multiplayer joiner shared NPCs just follow the
+host's (already valid) positions.
 
 ### Current layout (288×256)
 The original 192×192 vale is unchanged; the world grew **east** (x 192–287) and **south** (y 192–255).
@@ -809,7 +819,8 @@ so check `typeof Peer` / wait for `DOMContentLoaded` before constructing).
   GeoBuilder primitives with flame/lamp-like colours (or `b.glowNext = 1` before a primitive) self-illuminate at night.
   Building windows (on outer wall tiles) light up at dusk; ~60 % of houses get a chimney with smoke.
 * **Weather** (`render/weather.js`): `climateAt(world, x, y)` → `temperate forest swamp coast snow northwild mountain
-  ash embers desert cave`; `weatherFor(climate, now)` is deterministic per 5-minute wall-clock window (peers agree).
+  ash embers desert cave indoor` (`indoor` = non-dungeon pockets in the sealed band `y ≥ 224`, e.g. Starcaller's Study:
+  always clear); `weatherFor(climate, now)` is deterministic per 5-minute wall-clock window (peers agree).
   `game.weather = {climate, kind, intensity}`, event `'weather:change' {climate, kind, intensity, prev}` and
   `'weather:lightning'` (storms). GPU particle fields around the camera (rain, snow, ash, embers, sand, fireflies at
   night, butterflies/birds by day, cave dust), fog density/colour, wind (`GLOBAL.uWind`, drives foliage sway) and
@@ -852,3 +863,58 @@ All monsters/followers here are spawned at run time per player (`respawn: false`
 * **Emotes** tab – `game.emotes.play(id)` plays the one-shot anim `emote_<id>` (mirrored by the net `fx` snapshot) and
   emits `'emote' {player, id}`; poses are blended on top of the biped animator through a hook on the rig root's
   `updateMatrixWorld` (no render edits). Locked emotes are learned from `emote_scroll_<id>` items.
+
+---------------------------------------------------------------------------------------------------
+
+## 14. Audio (`src/audio/*`, `game.audio`)
+
+Fully procedural Web Audio – there are **no audio files**. `initAudio(game)` (called from `main.js` after
+`net.init`, never throws) builds the engine and publishes it as `game.audio`.
+
+| File | Role |
+|---|---|
+| `audio.js` | `AudioEngine`: buses (music / sfx / ambience → reverb sends → master → limiter), settings, voice pool, `spatial(at, range)` |
+| `synth.js` | stateless synthesis helpers (noise bursts, filtered oscillators, Karplus-Strong plucks, reverb impulse) |
+| `sfx.js` | `SOUNDS` recipe table; `game.audio.sfx.play(name, at?, { vol, range, priority, minGap })` (`at` = entity or tile → positional) |
+| `music.js` + `themes.js` | generative region music (theme = data: mode, bpm, progressions, instruments); area → theme map; crossfades on region change |
+| `ambience.js` | wind / water / lava beds sampled from the tiles around the player + sparse critter one-shots (day/night aware) |
+| `hooks.js` | event → sound wiring (§9 events + watching nearby entities' animations, so NPCs and remote players are audible too) |
+| `ui.js` | "Sound" section in the Settings tab + the speaker toggle under the minimap |
+
+* The `AudioContext` is created lazily on the **first user gesture** (no autoplay warnings) and is **suspended** while
+  the tab is hidden or the game is muted (no audio CPU then). If Web Audio is unavailable the engine is a silent no-op.
+* Settings live in `localStorage['ashvale.audio']` (not in the save): `master music sfx ambience` (0..1), `muted`,
+  `footsteps`. API: `game.audio.set(key, value)`, `toggleMute()`, `settings`.
+* Add a sound: a recipe in `SOUNDS` (sfx.js) + a trigger in hooks.js (or call `game.audio?.sfx.play(...)` from a system).
+
+---------------------------------------------------------------------------------------------------
+
+## 15. Eastern lands content (round 3)
+
+Files: `src/content/npcs_east.js` (imported by `npcs.js`), `shops_east.js` (imported by `shops.js`),
+`quests_east.js` + `quests_east2.js` (imported by `quests.js`). Same patterns as the vale content (`quest_util.js`
+helpers: `hook(fn)` runs at systems init, `stageOf/flags/has/give/take`, `questNpc/questObject/spawnNpc/spawnObj`).
+
+* **Towns & services** – bankers in Durnhold, Ilvaren, Dustwatch, Gullhaven and Bogwick; shops (Durnhold smiths /
+  stout, Ilvaren herbs & bows, Dustwatch trading post, Bastian's Chandlery in Gullhaven, Bogwick); 20+ townsfolk with
+  rumours / quest hints; eight lore books (Search the marked bookshelves); furnace + anvil in Durnhold's Forge Hall.
+* **Gullhaven ferry** – `ferry_<stop>` NPCs (Gullhaven, Beacon Isle, Bogwick, Thrush Isle, Wreckers' Cove), option
+  `Travel`; fares in coins, free after *The Brinecoil*. `ferryTravel(game, key)` is exported.
+* **Desert heat** – in the Sunscar Badlands (outside Dustwatch / Sunwell Oasis / the coast / dungeons) the heat drains
+  HP every few ticks unless a `waterskin_1..4` is carried (sipped automatically); each worn piece of desert cloth slows
+  it. Refill waterskins on the Dustwatch well / Sunwell spring. State `player.store('desert')`.
+* **Quests** (stage in `player.quests[id]`, all 100 = complete):
+
+| id | Name | Start |
+|---|---|---|
+| `forge_heart` | The Forge-Heart of Durnhold (Intermediate) | Forgemaster Brunna, Durnhold Forge Hall |
+| `moonwell_lament` | The Moonwell's Lament (Intermediate) | Moonwarden Sylvaine, Ilvaren Moonwell |
+| `stars_over_bramblemoor` | Stars over Bramblemoor (Intermediate) | Starcaller Orrin Vale, Starcaller's Spire/Study |
+| `keepers_light` | The Keeper's Light (Novice) | Old Agnes, Beacon Isle |
+| `sun_warden` | The Sun-Eyed Warden (Experienced) | Excavator Tamsin Reed, Sandswallowed Temple |
+| `brinecoil` | The Brinecoil (Experienced) | Harbourmaster Brannoc, Gullhaven |
+| `trial_by_bog` | Trial by Bog (Intermediate) | Reeve Odelia Sump, Bogwick |
+| `ember_under_mountain` | The Ember Under the Mountain (Master) | Thane Hargrim, Durnhold – needs Forge-Heart, Stars over Bramblemoor, Sun-Eyed Warden |
+
+  Quest bosses are spawned per player at run time (`respawn: false`) and are never shared over the network.
+  Quest-changed scenery (relit beacon, mended orrery…) is re-applied on `'game:ready'` from the saved stage.

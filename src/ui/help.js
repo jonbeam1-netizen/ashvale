@@ -23,6 +23,7 @@ const SECTIONS = [
   ]],
   ['Hotkeys', [
     ['F1 - F9', 'Combat, Skills, Quests, Inventory, Equipment, Prayer, Magic, Multiplayer, Settings tabs.'],
+    ['Emotes tab', 'Wave, bow, dance and more (the mask icon under the other tabs). Some emotes are learned from scrolls.'],
     ['Alt + M', 'Open or close the world map (or the map button under the minimap).'],
     ['Alt + R', 'Toggle run.'],
     ['Esc', 'Close the open window, dialogue or map.'],

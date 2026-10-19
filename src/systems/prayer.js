@@ -208,6 +208,7 @@ export function init(game) {
 
   // Use bones on an altar: offer every bone of that kind for 2.5x experience.
   game.interactions.onItemOnObject('*', '*', ({ player, item, target }) => {
+    if (!item?.id || !player || !target?.def) return false; // slot emptied before arrival / object gone
     const xp = boneXp(item.id);
     if (xp == null || !target.def.options?.some((o) => /^pray/i.test(o))) return false;
     const id = item.id;

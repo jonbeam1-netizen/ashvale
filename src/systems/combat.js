@@ -849,12 +849,14 @@ export function init(g) {
     if (style && game.prayer?.isProtected?.(t, style)) e.amount = 0;
   });
 
-  ev.on('damage', ({ target, source }) => {
+  ev.on('damage', ({ target, source, type, splat }) => {
     if (target === game.player && source && source !== target) {
       lastHitBy = source; lastHitTick = tick();
-      // auto retaliate
+      // auto retaliate (not to poison/venom ticks, and not to a late hit from something far away, e.g. after teleporting)
       const p = target;
       if (p.dead || !p.autoRetaliate || p.combatTarget || p.path.length || p.interaction || p.action) return;
+      if (type === 'poison' || type === 'venom' || splat === 'poison' || splat === 'venom') return;
+      if (Math.max(Math.abs(source.x - p.x), Math.abs(source.y - p.y)) > 15) return;
       if (source.type === 'remote' && !game.pvp?.canAttack(source)?.ok) return;
       if (source.dead) return;
       p.combatTarget = source;

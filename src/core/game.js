@@ -54,9 +54,40 @@ export class Game {
   // ---- setup ------------------------------------------------------------------------------
   buildWorld() {
     buildWorld(this);
+    this.makeRoomForBigNpcs();
     const cfg = registry.getMapConfig();
     this.player = new Player(this);
     this.player.setPosition(cfg.spawn.x, cfg.spawn.y);
+  }
+
+  /**
+   * Size-aware movement: a 3x3/4x4 boss boxed in by scattered decoration (pines, lava rocks, bone piles) could not
+   * take a single step. For every large NPC whose wander area has little room for its footprint, remove blocking
+   * *decorative* scenery (no options, no transition, not structural) inside that area. Runs once before rendering;
+   * deterministic, so every multiplayer peer gets the same world.
+   */
+  makeRoomForBigNpcs() {
+    const w = this.world;
+    const STRUCTURAL = /wall|fence|door|gate|bridge|pillar|ruin|ditch|statue|stair|ladder|portal|altar|tower|spire|house|hut|tent|palisade|booth|bank|gravestone|obelisk|cave|crypt|mound|sign/i;
+    let removed = 0;
+    for (const npc of [...this.npcs.values()]) {
+      const s = npc.size || 1;
+      if (s < 2) continue;
+      const r = Math.max(1, npc.wanderRadius || 0);
+      let fit = 0, total = 0;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { total++; if (w.fits(npc.spawnX + dx, npc.spawnY + dy, s)) fit++; }
+      if (fit / total >= 0.5) continue;
+      const x0 = npc.spawnX - r, y0 = npc.spawnY - r, x1 = npc.spawnX + r + s - 1, y1 = npc.spawnY + r + s - 1;
+      for (const obj of [...this.objects.values()]) {
+        const d = obj.def;
+        if (!d?.blocks || obj.x < x0 || obj.x > x1 || obj.y < y0 || obj.y > y1) continue;
+        if ((d.options || []).some((o) => !/^examine$/i.test(o)) || d.teleport || d.openId || d.closedId) continue;
+        if (STRUCTURAL.test(d.id) || STRUCTURAL.test(d.model?.template || '')) continue;
+        this.removeObject(obj);
+        removed++;
+      }
+    }
+    return removed;
   }
 
   // ---- tick loop ----------------------------------------------------------------------------
@@ -478,6 +509,16 @@ export class Game {
 
   fireInteraction(p, it) {
     const ctx = this.makeCtx(p, it.target, it.option, it.extra);
+    if (it.kind.startsWith('item') && it.kind !== 'item' && p.inventory) {
+      // "Use X -> target": the item may have been dropped/eaten/moved while walking there
+      const cur = ctx.slot != null ? p.inventory.get(ctx.slot) : null;
+      if (!cur || cur.id !== it.idA) {
+        const slot = it.idA ? p.inventory.indexOf(it.idA) : -1;
+        if (slot < 0) return;
+        ctx.slot = slot;
+        ctx.item = p.inventory.get(slot);
+      } else ctx.item = cur;
+    }
     if (it.target.type === 'npc' || it.target.type === 'remote') p.faceTarget = it.target;
     const handled = this.interactions.dispatch(it.kind, it.option, it.idA, it.idB, ctx);
     if (!handled && p === this.player) this.message('Nothing interesting happens.');
