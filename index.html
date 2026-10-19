@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ashvale</title>
+  <meta name="description" content="Ashvale - a browser adventure in a low-poly fantasy world.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+  <!-- PeerJS (global `Peer`) for the networking module in src/net/. -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+</head>
+<body>
+  <div id="game-root">
+    <div id="viewport"></div>
+    <div id="overlays"></div>
+    <div id="click-cross"></div>
+    <div id="hover-text"></div>
+    <div id="area-popup"></div>
+    <div id="xp-drops"></div>
+    <div id="hud-topright"></div>
+    <div id="wild-level" style="display:none"></div>
+    <div id="fps" style="display:none"></div>
+    <div id="chatbox" class="panel"></div>
+    <div id="sidepanel" class="panel"></div>
+    <div id="interface-layer"></div>
+    <div id="context-menu"></div>
+    <div id="tooltip"></div>
+    <div id="charcreate"></div>
+    <div id="loading"><div class="loading-box"><div class="loading-title">Ashvale</div><div class="loading-text">Loading world...</div><noscript>Ashvale needs JavaScript.</noscript></div></div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
